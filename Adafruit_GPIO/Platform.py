@@ -35,6 +35,7 @@ def platform_detect():
 	# the architecture name is brittle because new boards running armv6 or armv7
 	# might come along and conflict with this simple identification scheme.  One
 	# option might be switching to read /proc/cpuinfo.
+	# Indeed.
 	plat = platform.platform()
 
 	# Handle Raspberry Pi
@@ -46,7 +47,7 @@ def platform_detect():
 	elif plat.lower().find('raspberry_pi') > -1:
 		return RASPBERRY_PI
 	# Handle arch distribution.
-	elif plat.lower().find('arch-armv6l') > -1:
+	elif plat.lower().find('armv6l-with-glibc2.4') > -1:
 		return RASPBERRY_PI
 	# Handle Beaglebone Black
 	# Platform output on Debian ~May 2014:
