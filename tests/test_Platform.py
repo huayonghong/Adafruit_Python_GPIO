@@ -1,5 +1,4 @@
 # Copyright (c) 2014 Adafruit Industries
-# Author: Tony DiCola
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,57 +18,122 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 import unittest
-
-from mock import Mock, patch
+import os
+from mock import patch
 
 import Adafruit_GPIO.Platform as Platform
+from Adafruit_GPIO.Platform import SystemFactory
 
 
-class TestPlatformDetect(unittest.TestCase):
-    @patch('platform.platform', Mock(return_value='Linux-3.10.25+-armv6l-with-debian-7.4'))
-    def test_raspberry_pi(self):
-        result = Platform.platform_detect()
-        self.assertEquals(result, Platform.RASPBERRY_PI)
-
-    @patch('platform.platform', Mock(return_value='Linux-3.8.13-bone47-armv7l-with-debian-7.4'))
-    def test_beaglebone_black(self):
-        result = Platform.platform_detect()
-        self.assertEquals(result, Platform.BEAGLEBONE_BLACK)
-
-    @patch('platform.platform', Mock(return_value='Darwin-13.2.0-x86_64-i386-64bit'))
-    def test_unknown(self):
-        result = Platform.platform_detect()
-        self.assertEquals(result, Platform.UNKNOWN)
+class MockFactory(SystemFactory):
+    def __init__(self, chip_id):
+        self.platform_id = chip_id
+        self.name = "Mock-config"
 
 
-class TestPiRevision(unittest.TestCase):
-    def test_revision_1(self):
+class TestCreateSystemConfig(unittest.TestCase):
+
+    def test_read_proc_info(self):
+        p = Platform.read_proc_info()
+        if os.name == 'posix':
+            self.assertTrue(len(p) > 10)
+        else:
+            self.assertTrue(len(p) == 0)
+
+    def test_read_proc_info_beaglebone(self):
         with patch('__builtin__.open') as mock_open:
             handle = mock_open.return_value.__enter__.return_value
-            handle.__iter__.return_value = iter(['Revision : 0000'])
-            rev = Platform.pi_revision()
-            self.assertEquals(rev, 1)
-        with patch('__builtin__.open') as mock_open:
-            handle = mock_open.return_value.__enter__.return_value
-            handle.__iter__.return_value = iter(['Revision : 0002'])
-            rev = Platform.pi_revision()
-            self.assertEquals(rev, 1)
-        with patch('__builtin__.open') as mock_open:
-            handle = mock_open.return_value.__enter__.return_value
-            handle.__iter__.return_value = iter(['Revision : 0003'])
-            rev = Platform.pi_revision()
-            self.assertEquals(rev, 1)
+            content = """
+                processor	: 0
+                model name	: ARMv7 Processor rev 2 (v7l)
+                BogoMIPS	: 298.24
+                Features	: swp half thumb fastmult vfp edsp thumbee neon vfpv3 tls
+                CPU implementer	: 0x41
+                CPU architecture: 7
+                CPU variant	: 0x3
+                CPU part	: 0xc08
+                CPU revision	: 2
 
-    def test_revision_2(self):
-        with patch('__builtin__.open') as mock_open:
-            handle = mock_open.return_value.__enter__.return_value
-            handle.__iter__.return_value = iter(['Revision : 000e'])
-            rev = Platform.pi_revision()
-            self.assertEquals(rev, 2)
+                Hardware	: Generic AM33XX (Flattened Device Tree)
+                Revision	: 0000
+                Serial		: 0000000000000000
+            """
+            handle.read.return_value = content
+            p = Platform.read_proc_info()
+            self.assertEqual(len(p), 12)
+            self.assertEqual(p['model name'], 'ARMv7 Processor rev 2 (v7l)'.lower(), 'The values must be lower case')
+            self.assertEqual(p['hardware'], 'Generic AM33XX (Flattened Device Tree)'.lower(),
+                             'The keys must be lower case')
 
-    def test_unknown_revision(self):
+    def test_read_proc_info_intel(self):
         with patch('__builtin__.open') as mock_open:
             handle = mock_open.return_value.__enter__.return_value
-            handle.__iter__.return_value = iter(['foobar'])
-            self.assertRaises(RuntimeError, Platform.pi_revision)
+            content = """
+                processor	: 0
+                vendor_id	: GenuineIntel
+                cpu family	: 6
+                model		: 42
+                model name	: Intel(R) Core(TM) i3-2310M CPU @ 2.10GHz
+                cpu MHz		: 800.000
+                cache size	: 3072 KB
+                power management:
+
+                processor	: 1
+                vendor_id	: GenuineIntel
+                cpu family	: 6
+                model		: 42
+                model name	: Intel(R) Core(TM) i3-2310M CPU @ 2.10GHz
+                cpu MHz		: 800.000
+                cache size	: 3072 KB
+                power management:
+
+            """
+            handle.read.return_value = content
+            p = Platform.read_proc_info()
+            self.assertEqual(len(p), 8)
+            self.assertEqual(p['power management'], '')
+
+    def test_create_system_config(self):
+        config = Platform.create_system_config()
+        self.assertTrue(str(config).startswith('<'))
+
+    def test_create_system_config_without_data(self):
+        config = SystemFactory()
+        self.assertEqual(config.platform_id, Platform.UNKNOWN)
+
+    def test_create_raspberry_1(self):
+        cpu_dict = {'hardware': 'bcm2708', 'revision': '0002', 'model name': 'arm'}
+        config = SystemFactory(cpu_dict)
+        self.assertEqual(config.platform_id, Platform.RASPBERRY_PI)
+
+    def test_create_raspberry_2(self):
+        cpu_dict = {'hardware': 'bcm2709', 'revision': '0002', 'model name': 'arm'}
+        config = SystemFactory(cpu_dict)
+        self.assertEqual(config.platform_id, Platform.RASPBERRY_PI)
+
+    def test_create_beaglebone(self):
+        cpu_dict = {'hardware': 'Generic AM33XX (Flattened Device Tree)'.lower(),
+                    'revision': '0000', 'model name': 'ARMv7 Processor rev 2 (v7l)'.lower()
+                    }
+        config = SystemFactory(cpu_dict)
+        self.assertEqual(config.platform_id, Platform.BEAGLEBONE_BLACK)
+
+    def test_create_unexpected(self):
+        cpu_dict = {'hardware': 'foo', 'revision': '0001', 'model name': 'bar'}
+        config = SystemFactory(cpu_dict)
+        self.assertEqual(config.platform_id, Platform.UNKNOWN)
+
+    def test_get_platform_pwm_unknown(self):
+        try:
+            MockFactory(Platform.UNKNOWN).get_platform_pwm()
+            self.fail('Unknown platform must be created.')
+        except Exception as inst:
+            self.assertEqual(inst.message, 'No PWM implementation found for Mock-config.')
+
+    def test_get_platform_gpio_unknown(self):
+        try:
+            MockFactory(Platform.UNKNOWN).get_platform_gpio()
+            self.fail('Unknown platform must be created.')
+        except Exception as inst:
+            self.assertEqual(inst.message, 'No GPIO implementation found for Mock-config.')
 

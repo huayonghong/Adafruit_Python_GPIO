@@ -24,6 +24,7 @@ import unittest
 from mock import Mock, patch
 
 import Adafruit_GPIO.PWM as PWM
+import Adafruit_GPIO.Platform as Platform
 
 
 class TestRPi_PWM_Adapter(unittest.TestCase):
@@ -83,20 +84,3 @@ class TestBBIO_PWM_Adapter(unittest.TestCase):
         pwm.set_frequency('P9_16', 1000)
         bbio_pwm.set_frequency.assert_called_with('P9_16', 1000)
 
-
-class TestGetPlatformPWM(unittest.TestCase):
-    @patch.dict('sys.modules', {'RPi': Mock(), 'RPi.GPIO': Mock()})
-    @patch('platform.platform', Mock(return_value='Linux-3.10.25+-armv6l-with-debian-7.4'))
-    def test_raspberrypi(self):
-        pwm = PWM.get_platform_pwm()
-        self.assertIsInstance(pwm, PWM.RPi_PWM_Adapter)
-
-    @patch.dict('sys.modules', {'Adafruit_BBIO': Mock(), 'Adafruit_BBIO.PWM': Mock()})
-    @patch('platform.platform', Mock(return_value='Linux-3.8.13-bone47-armv7l-with-debian-7.4'))
-    def test_beagleboneblack(self):
-        pwm = PWM.get_platform_pwm()
-        self.assertIsInstance(pwm, PWM.BBIO_PWM_Adapter)
-
-    @patch('platform.platform', Mock(return_value='Darwin-13.2.0-x86_64-i386-64bit'))
-    def test_otherplatform(self):
-        self.assertRaises(RuntimeError, PWM.get_platform_pwm)

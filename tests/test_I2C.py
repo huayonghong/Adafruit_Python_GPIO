@@ -24,9 +24,6 @@ import unittest
 
 from mock import Mock, patch
 
-import Adafruit_GPIO.Platform as Platform
-
-
 # Enable debug logging to stdout during tests.
 logging.basicConfig()
 logging.getLogger().setLevel(logging.DEBUG)
@@ -153,29 +150,3 @@ class TestI2CDevice(unittest.TestCase):
         value = device.readS16(0xFE)
         self.assertEqual(value, -4863)
 
-
-class TestGetDefaultBus(unittest.TestCase):
-    @patch('Adafruit_GPIO.Platform.pi_revision', Mock(return_value=1))
-    @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.RASPBERRY_PI))
-    def test_raspberry_pi_rev1(self):
-        I2C = safe_import_i2c()
-        bus = I2C.get_default_bus()
-        self.assertEqual(bus, 0)
-
-    @patch('Adafruit_GPIO.Platform.pi_revision', Mock(return_value=2))
-    @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.RASPBERRY_PI))
-    def test_raspberry_pi_rev2(self):
-        I2C = safe_import_i2c()
-        bus = I2C.get_default_bus()
-        self.assertEqual(bus, 1)
-
-    @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.BEAGLEBONE_BLACK))
-    def test_beaglebone_black(self):
-        I2C = safe_import_i2c()
-        bus = I2C.get_default_bus()
-        self.assertEqual(bus, 1)
-
-    @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.UNKNOWN))
-    def test_unknown(self):
-        I2C = safe_import_i2c()
-        self.assertRaises(RuntimeError, I2C.get_default_bus)
