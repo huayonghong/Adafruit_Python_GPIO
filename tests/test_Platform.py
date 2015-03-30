@@ -35,7 +35,7 @@ class TestCreateSystemConfig(unittest.TestCase):
 
     def test_read_proc_info(self):
         p = Platform.read_proc_info()
-        if sys.platform == 'linux':
+        if sys.platform.startswith('linux'):
             self.assertTrue(len(p) > 10)
         else:
             self.assertTrue(len(p) == 0)
