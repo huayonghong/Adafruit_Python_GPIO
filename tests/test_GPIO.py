@@ -24,8 +24,6 @@ import unittest
 from mock import Mock, patch
 
 import Adafruit_GPIO as GPIO
-import Adafruit_GPIO.SPI as SPI
-import Adafruit_GPIO.Platform as Platform
 
 from MockGPIO import MockGPIO
 
@@ -209,20 +207,3 @@ class TestAdafruitBBIOAdapter(unittest.TestCase):
         adapter.cleanup(1)
         bbio_gpio.cleanup.assert_called_with(1)
 
-
-class TestGetPlatformGPIO(unittest.TestCase):
-    @patch.dict('sys.modules', {'RPi': Mock(), 'RPi.GPIO': Mock()})
-    @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.RASPBERRY_PI))
-    def test_raspberrypi(self):
-        gpio = GPIO.get_platform_gpio()
-        self.assertIsInstance(gpio, GPIO.RPiGPIOAdapter)
-
-    @patch.dict('sys.modules', {'Adafruit_BBIO': Mock(), 'Adafruit_BBIO.GPIO': Mock()})
-    @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.BEAGLEBONE_BLACK))
-    def test_beagleboneblack(self):
-        gpio = GPIO.get_platform_gpio()
-        self.assertIsInstance(gpio, GPIO.AdafruitBBIOAdapter)
-
-    @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.UNKNOWN))
-    def test_unknown(self):
-        self.assertRaises(RuntimeError, GPIO.get_platform_gpio)

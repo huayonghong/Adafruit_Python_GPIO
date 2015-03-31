@@ -84,20 +84,3 @@ class TestBBIO_PWM_Adapter(unittest.TestCase):
         pwm.set_frequency('P9_16', 1000)
         bbio_pwm.set_frequency.assert_called_with('P9_16', 1000)
 
-
-class TestGetPlatformPWM(unittest.TestCase):
-    @patch.dict('sys.modules', {'RPi': Mock(), 'RPi.GPIO': Mock()})
-    @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.RASPBERRY_PI))
-    def test_raspberrypi(self):
-        pwm = PWM.get_platform_pwm()
-        self.assertIsInstance(pwm, PWM.RPi_PWM_Adapter)
-
-    @patch.dict('sys.modules', {'Adafruit_BBIO': Mock(), 'Adafruit_BBIO.PWM': Mock()})
-    @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.BEAGLEBONE_BLACK))
-    def test_beagleboneblack(self):
-        pwm = PWM.get_platform_pwm()
-        self.assertIsInstance(pwm, PWM.BBIO_PWM_Adapter)
-
-    @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.UNKNOWN))
-    def test_otherplatform(self):
-        self.assertRaises(RuntimeError, PWM.get_platform_pwm)

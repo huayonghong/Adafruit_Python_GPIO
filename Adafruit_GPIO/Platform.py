@@ -1,5 +1,4 @@
 # Copyright (c) 2014 Adafruit Industries
-# Author: Tony DiCola
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,79 +18,158 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 import platform
-import re
+
+from collections import OrderedDict
 
 # Platform identification constants.
-UNKNOWN          = 0
-RASPBERRY_PI     = 1
+UNKNOWN = 0
+RASPBERRY_PI = 1
 BEAGLEBONE_BLACK = 2
 
 
-def platform_detect():
-    """Detect if running on the Raspberry Pi or Beaglebone Black and return the
-    platform type.  Will return RASPBERRY_PI, BEAGLEBONE_BLACK, or UNKNOWN."""
-    # Handle Raspberry Pi
-    pi = pi_version()
-    if pi is not None:
-        return RASPBERRY_PI
-
-    # Handle Beaglebone Black
-    # TODO: Check the Beaglebone Black /proc/cpuinfo value instead of reading
-    # the platform.
-    plat = platform.platform()
-    if plat.lower().find('armv7l-with-debian') > -1:
-        return BEAGLEBONE_BLACK
-    elif plat.lower().find('armv7l-with-ubuntu') > -1:
-        return BEAGLEBONE_BLACK
-    elif plat.lower().find('armv7l-with-glibc2.4') > -1:
-        return BEAGLEBONE_BLACK
-    
-    # Couldn't figure out the platform, just return unknown.
-    return UNKNOWN
-
-
-def pi_revision():
-    """Detect the revision number of a Raspberry Pi, useful for changing
-    functionality like default I2C bus based on revision."""
-    # Revision list available at: http://elinux.org/RPi_HardwareHistory#Board_Revision_History
-    with open('/proc/cpuinfo', 'r') as infile:
-        for line in infile:
-            # Match a line of the form "Revision : 0002" while ignoring extra
-            # info in front of the revsion (like 1000 when the Pi was over-volted).
-            match = re.match('Revision\s+:\s+.*(\w{4})$', line, flags=re.IGNORECASE)
-            if match and match.group(1) in ['0000', '0002', '0003']:
-                # Return revision 1 if revision ends with 0000, 0002 or 0003.
-                return 1
-            elif match:
-                # Assume revision 2 if revision ends with any other 4 chars.
-                return 2
-        # Couldn't find the revision, throw an exception.
-        raise RuntimeError('Could not determine Raspberry Pi revision.')
-
-
-def pi_version():
-    """Detect the version of the Raspberry Pi.  Returns either 1, 2 or
-    None depending on if it's a Raspberry Pi 1 (model A, B, A+, B+),
-    Raspberry Pi 2 (model B+), or not a Raspberry Pi.
+class SystemFactory(object):
     """
-    # Check /proc/cpuinfo for the Hardware field value.
-    # 2708 is pi 1
-    # 2709 is pi 2
-    # Anything else is not a pi.
-    with open('/proc/cpuinfo', 'r') as infile:
-        cpuinfo = infile.read()
-    # Match a line like 'Hardware   : BCM2709'
-    match = re.search('^Hardware\s+:\s+(\w+)$', cpuinfo,
-                      flags=re.MULTILINE | re.IGNORECASE)
-    if not match:
-        # Couldn't find the hardware, assume it isn't a pi.
-        return None
-    if match.group(1) == 'BCM2708':
-        # Pi 1
-        return 1
-    elif match.group(1) == 'BCM2709':
-        # Pi 2
-        return 2
+    Collection of all system configuration properties.
+    It is used as a factory to create any component
+    """
+
+    def __init__(self, cpu_info = {}, name = "Unknown"):
+        """
+        Create SystemFactory from data in cpu_info
+        :param cpu_info: dictionary with keys and values in lower case
+        :param name: a mark for representation only
+        :return: factory to create components
+        """
+        self.hardware = cpu_info.get('hardware', None)
+        self.revision = cpu_info.get('revision', None)
+        self.model_name = cpu_info.get('model name', None)
+        self.name = name
+        if self.hardware and self.revision and self.model_name:
+            if self.hardware == 'bcm2708':
+                # Raspberry Pi 1 (model A, B, A+, B+)
+                self.platform_id = RASPBERRY_PI
+            elif self.hardware == 'bcm2709':
+                # Raspberry Pi 2 (model B+)
+                self.platform_id = RASPBERRY_PI
+            elif 'am33' in self.hardware and 'v7l' in self.model_name:
+                self.platform_id = BEAGLEBONE_BLACK
+            else:
+                self.platform_id = UNKNOWN
+        else:
+            self.platform_id = UNKNOWN
+
+    def __str__(self):
+        return "<{} - {} - {} - {}>".format(self.hardware, self.revision, self.model_name, self.name)
+
+    def get_platform_pwm(self, **keywords):
+        """Attempt to return a PWM instance for the platform which the code is being
+        executed on.  Currently supports only the Raspberry Pi using the RPi.GPIO
+        library and Beaglebone Black using the Adafruit_BBIO library.  Will throw an
+        exception if a PWM instance can't be created for the current platform.  The
+        returned PWM object has the same interface as the RPi_PWM_Adapter and
+        BBIO_PWM_Adapter classes.
+        """
+        if self.platform_id == RASPBERRY_PI:
+            import RPi.GPIO
+            from Adafruit_GPIO.PWM import RPi_PWM_Adapter
+            return RPi_PWM_Adapter(RPi.GPIO, **keywords)
+        elif self.platform_id == BEAGLEBONE_BLACK:
+            import Adafruit_BBIO.PWM
+            from Adafruit_GPIO.PWM import BBIO_PWM_Adapter
+            return BBIO_PWM_Adapter(Adafruit_BBIO.PWM, **keywords)
+        elif self.platform_id == UNKNOWN:
+            raise RuntimeError('No PWM implementation found for {}.'.format(self.name))
+
+    def get_platform_gpio(self, **keywords):
+        """Attempt to return a GPIO instance for the platform which the code is being
+        executed on.  Currently supports only the Raspberry Pi using the RPi.GPIO
+        library and Beaglebone Black using the Adafruit_BBIO library.  Will throw an
+        exception if a GPIO instance can't be created for the current platform.  The
+        returned GPIO object is an instance of BaseGPIO.
+        """
+        if self.platform_id == RASPBERRY_PI:
+            import RPi.GPIO
+            from Adafruit_GPIO.GPIO import RPiGPIOAdapter
+            return RPiGPIOAdapter(RPi.GPIO, **keywords)
+        elif self.platform_id == BEAGLEBONE_BLACK:
+            import Adafruit_BBIO.GPIO
+            from Adafruit_GPIO.GPIO import AdafruitBBIOAdapter
+            return AdafruitBBIOAdapter(Adafruit_BBIO.GPIO, **keywords)
+        elif self.platform_id == UNKNOWN:
+            raise RuntimeError('No GPIO implementation found for {}.'.format(self.name))
+
+    def get_default_bus(self):
+            """Return the default bus number based on the device platform.  For a
+            Raspberry Pi either bus 0 or 1 (based on the Pi revision) will be returned.
+            For a Beaglebone Black the first user accessible bus, 1, will be returned.
+            """
+            if self.platform_id == RASPBERRY_PI and self.revision:
+                # Revision list available at: http://elinux.org/RPi_HardwareHistory#Board_Revision_History
+                # Match a line of the form "Revision : 0002" while ignoring extra
+                # info in front of the revision (like 1000 when the Pi was over-volted).
+                rev = self.revision[-4:]
+                if rev in ['0000', '0002', '0003']:
+                    # Revision 1 Pi uses I2C bus 0.
+                    return 0
+                else:
+                    # Revision 2 Pi uses I2C bus 1.
+                    return 1
+            elif self.platform_id == BEAGLEBONE_BLACK:
+                # Beaglebone Black has multiple I2C buses, default to 1 (P9_19 and P9_20).
+                return 1
+            else:
+                raise RuntimeError('Could not determine default I2C bus for platform for {}.'.format(self.name))
+
+    def get_i2c_device(self, address, busnum=None, **kwargs):
+        """Return an I2C device for the specified address and on the specified bus.
+        If busnum isn't specified, the default I2C bus for the platform will attempt
+        to be detected.
+        """
+        from Adafruit_GPIO.I2C import Device
+        if busnum is None:
+            busnum = self.get_default_bus()
+        return Device(address, busnum, **kwargs)
+
+    def require_repeated_start(self):
+        """Enable repeated start conditions for I2C register reads.  This is the
+        normal behavior for I2C, however on some platforms like the Raspberry Pi
+        there are bugs which disable repeated starts unless explicitly enabled with
+        this function.  See this thread for more details:
+          http://www.raspberrypi.org/forums/viewtopic.php?f=44&t=15840
+        """
+        if self.platform_id == RASPBERRY_PI:
+            import subprocess
+            # On the Raspberry Pi there is a bug where register reads don't send a
+            # repeated start condition like the kernel smbus I2C driver functions
+            # define.  As a workaround this bit in the BCM2708 driver sysfs tree can
+            # be changed to enable I2C repeated starts.
+            subprocess.check_call('chmod 666 /sys/module/i2c_bcm2708/parameters/combined', shell=True)
+            subprocess.check_call('echo -n 1 > /sys/module/i2c_bcm2708/parameters/combined', shell=True)
+        # Other platforms are a no-op because they (presumably) have the correct
+        # behavior and send repeated starts.
+
+
+def read_proc_info():
+    """
+    Read /proc/cpuinfo, make lower case and parse it into a dictionary.
+    In case of many CPUs, the last value for same key is used
+    :return: parsed values or empty dictionary
+    """
+    import os.path
+    fname = "/proc/cpuinfo"
+    if os.path.isfile(fname):
+        with open(fname, 'r') as infile:
+            raw = infile.read().lower()
+            return OrderedDict([map(str.strip, line.split(':')) for line in raw.splitlines() if line.strip()])
     else:
-        # Something else, not a pi.
-        return None
+        # Mac or Windows might be used for development
+        return OrderedDict()
+
+
+def create_system_config():
+    """
+    Read 'proc/cpuinfo' and configure SystemFactory
+    :return: factory to create components
+    """
+    cpu_info_dict = read_proc_info()
+    return SystemFactory(cpu_info=cpu_info_dict, name=platform.platform())
