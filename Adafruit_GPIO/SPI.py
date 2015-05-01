@@ -22,14 +22,17 @@
 import operator
 import time
 
-import Adafruit_GPIO as GPIO
-
+import GPIO as GPIO
 
 MSBFIRST = 0
 LSBFIRST = 1
 
+def SpiDev(port,device,max_speed_hz):
+    plat = GPIO.Platform.platform_detect()
+    if plat is 3: return SpiDevMraa(port,device,max_speed_hz) 
+    else: return SpiDevLinux(port,device,max_speed_hz)
 
-class SpiDev(object):
+class SpiDevLinux(object):
     """Hardware-based SPI implementation using the spidev interface."""
 
     def __init__(self, port, device, max_speed_hz=500000):
@@ -43,12 +46,13 @@ class SpiDev(object):
         self._device.max_speed_hz=max_speed_hz
         # Default to mode 0.
         self._device.mode = 0
-
+        
     def set_clock_hz(self, hz):
         """Set the speed of the SPI clock in hertz.  Note that not all speeds
         are supported and a lower speed might be chosen by the hardware.
         """
         self._device.max_speed_hz=hz
+        
 
     def set_mode(self, mode):
         """Set SPI mode which controls clock polarity and phase.  Should be a
@@ -96,8 +100,9 @@ class SpiDev(object):
 
 class SpiDevMraa(object):
     """Hardware SPI implementation with the mraa library on Minnowboard"""
-    def __init__(self, port, device, max_speed_hz=500000):
-        self._device = mraa.Spi()
+    def __init__(self, port, device, max_speed_hz=1600000):
+        import mraa
+        self._device = mraa.Spi(0)
         self._device.mode(0)
         
     def set_clock_hz(self, hz):
@@ -106,7 +111,7 @@ class SpiDevMraa(object):
         """
         self._device.frequency(hz)
 
-        def set_mode(self,mode):
+    def set_mode(self,mode):
         """Set SPI mode which controls clock polarity and phase.  Should be a
         numeric value 0, 1, 2, or 3.  See wikipedia page for details on meaning:
         http://en.wikipedia.org/wiki/Serial_Peripheral_Interface_Bus
