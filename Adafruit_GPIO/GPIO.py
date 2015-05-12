@@ -19,8 +19,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import Platform as Platform
-
+import Adafruit_GPIO.Platform as Platform
 
 OUT     = 0
 IN      = 1
@@ -374,7 +373,7 @@ class AdafruitMinnowAdapter(BaseGPIO):
 
 def get_platform_gpio(**keywords):
     """Attempt to return a GPIO instance for the platform which the code is being
-    executed on.  Currently supports only the Raspberry Pi using the RPi.GPIO
+    executed on. Currently supports only the Raspberry Pi using the RPi.GPIO
     library, Beaglebone Black using the Adafruit_BBIO library, and
     Minnowboard MAX using the mraa GPIO library.  Will throw an
     exception if a GPIO instance can't be created for the current platform.  The
