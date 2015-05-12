@@ -21,7 +21,6 @@
 
 import Adafruit_GPIO.Platform as Platform
 
-
 OUT     = 0
 IN      = 1
 HIGH    = True
@@ -338,18 +337,14 @@ class AdafruitMinnowAdapter(BaseGPIO):
         """
         return self.mraa_gpio.Gpio.read(self.mraa_gpio.Gpio(pin))    
     
-    def add_event_detect(self, pin, edge, callback=None, bouncetime=-1):
+    def add_event_detect(self, pin, edge, pyfunc, args):
         """Enable edge detection events for a particular GPIO channel.  Pin 
-        should be type IN.  Edge must be RISING, FALLING or BOTH.  Callback is a
-        function for the event.  Bouncetime is switch bounce timeout in ms for 
-        callback
+        should be type IN.  Edge must be RISING, FALLING or BOTH. pyfunc is a
+        function for the event. args is an argument you can pass to the function.
         """
-        kwargs = {}
-        if callback:
-            kwargs['callback']=callback
-        if bouncetime > 0:
-            kwargs['bouncetime']=bouncetime
-        self.mraa_gpio.Gpio.isr(self.mraa_gpio.Gpio(pin), self._edge_mapping[edge], **kwargs)
+        self.temp_pin = self.mraa_gpio.Gpio(pin)
+        self.temp_pin.dir(self._edge_mapping[edge])
+        self.temp_pin.isr(self._edge_mapping[edge], pyfunc, args)
 
     def remove_event_detect(self, pin):
         """Remove edge detection for a particular GPIO channel.  Pin should be
@@ -361,7 +356,7 @@ class AdafruitMinnowAdapter(BaseGPIO):
         """Wait for an edge.   Pin should be type IN.  Edge must be RISING, 
         FALLING or BOTH.
         """
-        self.bbio_gpio.wait_for_edge(self.mraa_gpio.Gpio(pin), self._edge_mapping[edge])
+        self.mraa_gpio.wait_for_edge(self.mraa_gpio.Gpio(pin), self._edge_mapping[edge])
 
 def get_platform_gpio(**keywords):
     """Attempt to return a GPIO instance for the platform which the code is being
