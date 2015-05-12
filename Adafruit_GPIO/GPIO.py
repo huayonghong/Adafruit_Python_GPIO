@@ -19,7 +19,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import Adafruit_GPIO.Platform as Platform
+import Platform as Platform
+
 
 OUT     = 0
 IN      = 1
@@ -356,12 +357,26 @@ class AdafruitMinnowAdapter(BaseGPIO):
         """Wait for an edge.   Pin should be type IN.  Edge must be RISING, 
         FALLING or BOTH.
         """
-        self.mraa_gpio.wait_for_edge(self.mraa_gpio.Gpio(pin), self._edge_mapping[edge])
+        class Status:
+            status = "run"
+    
+        status = Status()
+
+        def halt(self):
+            status.status = "die" 
+        
+        self.add_event_detect(pin,edge,halt,None)
+        
+        while True:
+            if (status.status == "die"):
+                break
+            continue
 
 def get_platform_gpio(**keywords):
     """Attempt to return a GPIO instance for the platform which the code is being
     executed on.  Currently supports only the Raspberry Pi using the RPi.GPIO
-    library and Beaglebone Black using the Adafruit_BBIO library.  Will throw an
+    library, Beaglebone Black using the Adafruit_BBIO library, and
+    Minnowboard MAX using the mraa GPIO library.  Will throw an
     exception if a GPIO instance can't be created for the current platform.  The
     returned GPIO object is an instance of BaseGPIO.
     """
