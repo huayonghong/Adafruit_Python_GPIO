@@ -21,8 +21,7 @@
 
 import operator
 import time
-
-import GPIO as GPIO
+import Adafruit_GPIO as GPIO
 
 MSBFIRST = 0
 LSBFIRST = 1
