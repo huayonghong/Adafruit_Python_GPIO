@@ -422,5 +422,8 @@ def get_platform_gpio(**keywords):
     elif plat == Platform.MINNOWBOARD:
         import mraa
         return AdafruitMinnowAdapter(mraa, **keywords)
+    elif plat == Platform.EDISON:
+        import mraa
+        return AdafruitMinnowAdapter(mraa, **keywords)
     elif plat == Platform.UNKNOWN:
         raise RuntimeError('Could not determine platform.')
