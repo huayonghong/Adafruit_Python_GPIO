@@ -29,7 +29,7 @@ import time
 
 import ftdi1 as ftdi
 
-import GPIO
+import Adafruit_GPIO.GPIO as GPIO
 
 
 logger = logging.getLogger(__name__)
@@ -106,14 +106,14 @@ def enumerate_device_serials(vid=FT232H_VID, pid=FT232H_PID):
         device_list = None
         count, device_list = ftdi.usb_find_all(ctx, vid, pid)
         if count < 0:
-            raise RuntimeError('ftdi_usb_find_all returned error {0}: {1}'.format(count, ftdi.get_error_string(self._ctx)))
+            raise RuntimeError('ftdi_usb_find_all returned error {0}: {1}'.format(count, ftdi.get_error_string(ctx)))
         # Walk through list of devices and assemble list of serial numbers.
         devices = []
         while device_list is not None:
             # Get USB device strings and add serial to list of devices.
             ret, manufacturer, description, serial = ftdi.usb_get_strings(ctx, device_list.dev, 256, 256, 256)
             if ret < 0:
-                raise RuntimeError('ftdi_usb_get_strings returned error {0}: {1}'.format(ret, ftdi.get_error_string(self._ctx)))
+                raise RuntimeError('ftdi_usb_get_strings returned error {0}: {1}'.format(ret, ftdi.get_error_string(ctx)))
             devices.append(serial)
             device_list = device_list.next
         return devices
@@ -225,7 +225,7 @@ class FT232H(GPIO.BaseGPIO):
             index += ret
             # Buffer is full, return the result data.
             if index >= expected:
-                return str(response)
+                return response
             time.sleep(0.01)
         raise RuntimeError('Timeout while polling ftdi_read_data for {0} bytes!'.format(expected))
 
@@ -248,7 +248,7 @@ class FT232H(GPIO.BaseGPIO):
         sync = False
         while not sync:
             data = self._poll_read(2)
-            if data == '\xFA\xAB':
+            if data == b'\xFA\xAB' or data == '\xFA\xAB':
                 sync = True
             tries += 1
             if tries >= max_retries:
@@ -282,7 +282,7 @@ class FT232H(GPIO.BaseGPIO):
             divisor = int(divisor*(2.0/3.0))
         logger.debug('Setting clockspeed with divisor value {0}'.format(divisor))
         # Send command to set divisor from low and high byte values.
-        self._write(str(bytearray((0x86, divisor & 0xFF, (divisor >> 8) & 0xFF))))
+        self._write(chr(0x86) + chr(divisor & 0xFF) + chr((divisor >> 8) & 0xFF))
 
     def mpsse_read_gpio(self):
         """Read both GPIO bus states and return a 16 bit value with their state.
@@ -306,7 +306,7 @@ class FT232H(GPIO.BaseGPIO):
         level_high = chr((self._level >> 8) & 0xFF)
         dir_low  = chr(self._direction & 0xFF)
         dir_high = chr((self._direction >> 8) & 0xFF)
-        return str(bytearray((0x80, level_low, dir_low, 0x82, level_high, dir_high)))
+        return chr(0x80) + level_low + dir_low + chr(0x82) + level_high + dir_high
 
     def mpsse_write_gpio(self):
         """Write the current MPSSE GPIO state to the FT232H chip."""
@@ -620,7 +620,7 @@ class I2CDevice(object):
         """Write the specified number of bytes to the chip."""
         for byte in data:
             # Write byte.
-            self._command.append(str(bytearray((0x11, 0x00, 0x00, byte))))
+            self._command.append(chr(0x11) + chr(0x00) + chr(0x00) + chr(byte))
             # Make sure pins are back in idle state with clock low and data high.
             self._ft232h.output_pins({0: GPIO.LOW, 1: GPIO.HIGH}, write=False)
             self._command.append(self._ft232h.mpsse_gpio() * _REPEAT_DELAY)
