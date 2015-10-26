@@ -533,10 +533,11 @@ class I2CDevice(object):
     on the device."""
     # Note that most of the functions in this code are adapted from this app note:
     #  http://www.ftdichip.com/Support/Documents/AppNotes/AN_255_USB%20to%20I2C%20Example%20using%20the%20FT232H%20and%20FT201X%20devices.pdf
-    def __init__(self, ft232h, address, clock_hz=100000):
+    def __init__(self, ft232h, address, clock_hz=100000, regWidth=1):
         """Create an instance of the I2C device at the specified address on the
         specified I2C bus number."""
         self._address = address
+        self._regWidth = regWidth
         self._ft232h = ft232h
         # Enable clock with three phases for I2C.
         self._ft232h.mpsse_set_clock(clock_hz, three_phase=True)
@@ -638,6 +639,18 @@ class I2CDevice(object):
         else:
             return self._address << 1
 
+    def _i2c_write_address_and_reg(self, read, register):
+        """ Writes address and register to a chip during a transaction, taking
+        care of multi-byte registers (if appropriate)
+        """
+        transaction = []
+        for i in range(self._regWidth):
+            transaction.append(register & 0xFF);
+            register >>= 8
+        transaction.append(self._address_byte(read))
+        transaction.reverse()
+        self._i2c_write_bytes(transaction)
+
     def _verify_acks(self, response):
         """Check all the specified bytes have the ACK bit set.  Throws a
         RuntimeError exception if not all the ACKs are set.
@@ -678,7 +691,8 @@ class I2CDevice(object):
         self._idle()
         self._transaction_start()
         self._i2c_start()
-        self._i2c_write_bytes([self._address_byte(False), register, value])
+        self._i2c_write_address_and_reg(False, register)
+        self._i2c_write_bytes([value])
         self._i2c_stop()
         response = self._transaction_end()
         self._verify_acks(response)
@@ -693,8 +707,8 @@ class I2CDevice(object):
         self._idle()
         self._transaction_start()
         self._i2c_start()
-        self._i2c_write_bytes([self._address_byte(False), register, value_low,
-                                value_high])
+        self._i2c_write_address_and_reg(False, register)
+        self._i2c_write_bytes([value_low, value_high])
         self._i2c_stop()
         response = self._transaction_end()
         self._verify_acks(response)
@@ -704,7 +718,8 @@ class I2CDevice(object):
         self._idle()
         self._transaction_start()
         self._i2c_start()
-        self._i2c_write_bytes([self._address_byte(False), register] + data)
+        self._i2c_write_address_and_reg(False, register)
+        self._i2c_write_bytes(data)
         self._i2c_stop()
         response = self._transaction_end()
         self._verify_acks(response)
@@ -748,7 +763,7 @@ class I2CDevice(object):
         self._idle()
         self._transaction_start()
         self._i2c_start()
-        self._i2c_write_bytes([self._address_byte(False), register])
+        self._i2c_write_address_and_reg(False, register)
         self._i2c_stop()
         self._i2c_idle()
         self._i2c_start()
@@ -773,7 +788,7 @@ class I2CDevice(object):
         self._idle()
         self._transaction_start()
         self._i2c_start()
-        self._i2c_write_bytes([self._address_byte(False), register])
+        self._i2c_write_address_and_reg(False, register)
         self._i2c_stop()
         self._i2c_idle()
         self._i2c_start()
