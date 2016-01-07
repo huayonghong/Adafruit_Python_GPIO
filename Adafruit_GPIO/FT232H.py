@@ -717,15 +717,17 @@ class I2CDevice(object):
         self._idle()
         self._transaction_start()
         self._i2c_start()
-        self._i2c_write_bytes([self._address_byte(True), register])
+        self._i2c_write_bytes([self._address_byte(False), register])
         self._i2c_stop()
         self._i2c_idle()
         self._i2c_start()
+        self._i2c_write_bytes([self._address_byte(True)])
         self._i2c_read_bytes(length)
         self._i2c_stop()
         response = self._transaction_end()
         self._verify_acks(response[:-length])
         return response[-length:]
+
 
     def readRaw8(self):
         """Read an 8-bit value on the bus (without register)."""
