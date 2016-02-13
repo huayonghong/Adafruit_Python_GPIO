@@ -405,6 +405,84 @@ class AdafruitMinnowAdapter(BaseGPIO):
         """
         self.bbio_gpio.wait_for_edge(self.mraa_gpio.Gpio(pin), self._edge_mapping[edge])
 
+class CHIPGPIOAdapter(BaseGPIO):
+    """ GPIO implementation for the CHIP using brute force calls to deal with GPIO 
+        Based on https://github.com/NextThingCo/ChippyRuxpin/blob/master/chippyRuxpin_gpio.py
+    """
+    
+    def __init__(self):
+        # No external library for input as CHIP has no offical GPIO library yet
+        # so we're importing subprocess to brute force things
+        import subprocess as SP
+        self.sp = SP
+
+        self.pins = []
+        self.modes = []
+
+        # Set up mappings
+        self._dir_mapping = { OUT:   "out",
+                              IN:    "in" }
+        self._pin_mapping = { "XIOP0" : 408,
+                              "XIOP1" : 409,
+                              "XIOP2" : 410,
+                              "XIOP3" : 411,
+                              "XIOP4" : 412,
+                              "XIOP5" : 413,
+                              "XIOP6" : 414,
+                              "XIOP7" : 415,
+                              "CSID0" : 132,
+                              "CSID1" : 133,
+                              "CSID2" : 134,
+                              "CSID3" : 135,
+                              "CSID4" : 136,
+                              "CSID5" : 137,
+                              "CSID6" : 138,
+                              "CSID7" : 139 }
+        
+    def setup(self, pin, mode):
+        """ Setup the GPIO pin specified, will pull the GPIO number from the input string """
+        cmd = "echo %d > /sys/class/gpio/export" % self._pin_mapping[pin]
+        self.sp.call(cmd, shell=True)
+        cmd = "echo \"%s\" > /sys/class/gpio/gpio%d/direction" % (self._dir_mapping[mode], self._pin_mapping[pin])
+        print cmd
+        self.sp.Popen(cmd, shell=True)
+        self.pins.append(self._pin_mapping[pin])
+        self.modes.append(mode)
+
+    def output(self, pin, value):
+        """ Write the value to the pin """
+        cmd = "echo %d > /sys/class/gpio/gpio%d/value" % (value, self._pin_mapping[pin])
+        self.sp.call(cmd, shell=True)
+
+    def input(self, pin):
+        """ Get data from the specified GPIO pin """
+        cmd = "cat /sys/class/gpio/gpio%d/value" % self._pin_mapping[pin]
+        rtnval = self.sp.check_output(cmd, shell=True).strip()
+        return rtnval
+    
+    def cleanup(self, pin=None):
+        """ Stop allowing GPIO on all set pins or a specified pin """
+        if pin is not None:
+            mode = self.modes[self.pins.index(self._pin_mapping[pin])]
+            if mode == OUT:
+                self.output(self._pin_mapping[pin], 0)
+            cmd = "echo %d > /sys/class/gpio/unexport" % self._pin_mapping[pin]
+            self.sp.call(cmd, shell=True)
+            try:
+                self.modes.pop(self.pins.index(self._pin_mapping[pin]))
+                self.pins.remove(self._pin_mapping[pin])
+            except:
+                pass
+        else:
+            for i in xrange(len(self.pins)):
+                if self.modes[i] == OUT:
+                    cmd = "echo 0 /sys/class/gpio/gpio%d/value" % self.pins[i]
+                    self.sp.Popen(cmd, shell=True)
+                cmd = "echo %d > /sys/class/gpio/unexport" % self.pins[i]
+                self.sp.Popen(cmd, shell=True)
+            self.pins = []
+            self.modes = []
+
 def get_platform_gpio(**keywords):
     """Attempt to return a GPIO instance for the platform which the code is being
     executed on.  Currently supports only the Raspberry Pi using the RPi.GPIO
@@ -422,5 +500,7 @@ def get_platform_gpio(**keywords):
     elif plat == Platform.MINNOWBOARD:
         import mraa
         return AdafruitMinnowAdapter(mraa, **keywords)
+    elif plat == Platform.CHIP:
+        return CHIPGPIOAdapter(**keywords)
     elif plat == Platform.UNKNOWN:
         raise RuntimeError('Could not determine platform.')
