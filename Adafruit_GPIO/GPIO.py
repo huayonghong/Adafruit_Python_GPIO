@@ -444,7 +444,6 @@ class CHIPGPIOAdapter(BaseGPIO):
         cmd = "echo %d > /sys/class/gpio/export" % self._pin_mapping[pin]
         self.sp.call(cmd, shell=True)
         cmd = "echo \"%s\" > /sys/class/gpio/gpio%d/direction" % (self._dir_mapping[mode], self._pin_mapping[pin])
-        print cmd
         self.sp.Popen(cmd, shell=True)
         self.pins.append(self._pin_mapping[pin])
         self.modes.append(mode)
