@@ -112,44 +112,32 @@ class BBIO_PWM_Adapter(object):
 def CHIP_PWM_Adapter(object):
     """PWM implementation for the CHIP using sysfs"""
 
-    def __init__(self):
-        import subprocess as sp
-        self.sp = sp
+    def __init__(self, chipio_pwm):
+        self.chipio_pwm = chipio_pwm
 
-    def start(self, dutycycle, frequency_hz=2000):
-        """Enable PWM on the CHIP, there is only 1 pin, at the specified duty cycle value (0 to 100)
-           and frequency (in Hz)
+    def start(self, pin, dutycycle, frequency_hz=2000):
+        """Enable PWM output on specified pin.  Set to intiial percent duty cycle
+        value (0.0 to 100.0) and frequency (in Hz).
         """
-        # Setup dutycycle
         if dutycycle < 0.0 or dutycycle > 100.0:
-            raise ValueError('Invalid duty cycle value, must be between 0.0 and 100.0 (inclusive).')
-        cmd = "echo %d > /sys/class/pwm/pwm0/duty_percent" % int(dutycycle)
-        self.sp.call(cmd, shell=True)
+            raise ValueError('Invalid duty cycle value, must be between 0.0 to 100.0 (inclusive).')
+        self.chipio_pwm.start(pin, dutycycle, frequency_hz)
 
-        # Setup frequency
-        cmd = "echo %dhz > /sys/class/pwm/pwm0/period" % int(frequency_hz)
-        self.sp.Popen(cmd, shell=True)
-
-        # Enable
-        cmd = "echo 1 > /sys/class/pwm/pwm0/run"
-        self.sp.Popen(cmd, shell=True)
-
-    def set_duty_cycle(self, dutycycle):
-        """Set percent duty cycle of PWM output, value must be between 0.0 and 100.0"""
+    def set_duty_cycle(self, pin, dutycycle):
+        """Set percent duty cycle of PWM output on specified pin.  Duty cycle must
+        be a value 0.0 to 100.0 (inclusive).
+        """
         if dutycycle < 0.0 or dutycycle > 100.0:
-            raise ValueError('Invalid duty cycle value, must be between 0.0 and 100.0 (inclusive).')
-        cmd = "echo %d > /sys/class/pwm/pwm0/duty_percent" % int(dutycycle)
-        self.sp.call(cmd, shell=True)
+            raise ValueError('Invalid duty cycle value, must be between 0.0 to 100.0 (inclusive).')
+        self.chipio_pwm.set_duty_cycle(pin, dutycycle)
 
-    def set_frequency(self, frequency_hz):
-        """Set frequency (in Hz) of PWM output"""
-        cmd = "echo %dhz > /sys/class/pwm/pwm0/period" % int(frequency_hz)
-        self.sp.Popen(cmd, shell=True)
+    def set_frequency(self, pin, frequency_hz):
+        """Set frequency (in Hz) of PWM output on specified pin."""
+        self.chipio_pwm.set_frequency(pin, frequency_hz)
 
-    def stop(self):
-        """Stop the PWM output"""
-        cmd = "echo 0 > /sys/class/pwm/pwm0/run"
-        self.sp.Popen(cmd, shell=True)
+    def stop(self, pin):
+        """Stop PWM output on specified pin."""
+        self.chipio_pwm.stop(pin)
 
 
 def get_platform_pwm(**keywords):
@@ -168,6 +156,7 @@ def get_platform_pwm(**keywords):
         import Adafruit_BBIO.PWM
         return BBIO_PWM_Adapter(Adafruit_BBIO.PWM, **keywords)
     elif plat == Platform.CHIP:
-        return CHIP_PWM_Adapter(**keywords)
+        import CHIP_IO.PWM
+        return CHIP_PWM_Adapter(CHIP_IO.PWM, **keywords)
     elif plat == Platform.UNKNOWN:
         raise RuntimeError('Could not determine platform.')
