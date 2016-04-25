@@ -109,7 +109,7 @@ class BBIO_PWM_Adapter(object):
         self.bbio_pwm.stop(pin)
 
 
-def CHIP_PWM_Adapter(object):
+class CHIP_PWM_Adapter(object):
     """PWM implementation for the CHIP using sysfs"""
 
     def __init__(self, chipio_pwm):
