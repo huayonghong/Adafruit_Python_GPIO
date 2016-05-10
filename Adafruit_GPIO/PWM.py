@@ -110,7 +110,11 @@ class BBIO_PWM_Adapter(object):
 
 
 class CHIP_PWM_Adapter(object):
-    """PWM implementation for the CHIP using sysfs"""
+    """
+     PWM implementation for the CHIP using sysfs
+      For HW PWM: chipio_pwm = CHIP_IO.PWM
+      For SW PWM: chipio_pwm = CHIP_IO.SOFTPWM
+    """
 
     def __init__(self, chipio_pwm):
         self.chipio_pwm = chipio_pwm
@@ -156,7 +160,14 @@ def get_platform_pwm(**keywords):
         import Adafruit_BBIO.PWM
         return BBIO_PWM_Adapter(Adafruit_BBIO.PWM, **keywords)
     elif plat == Platform.CHIP:
-        import CHIP_IO.PWM
-        return CHIP_PWM_Adapter(CHIP_IO.PWM, **keywords)
+        if "pwmtype" in keywords.keys():
+            if keywords["pwmtype"] == "pwm":
+                import CHIP_IO.PWM
+                return CHIP_PWM_Adapter(CHIP_IO.PWM, **keywords)
+            elif keywords["pwmtype"] == "softpwm":
+                import CHIP_IO.SOFTPWM
+                return CHIP_PWM_Adapter(CHIP_IO.SOFTPWM, **keywords)
+        else:
+            raise ValueError('For CHIP, you need to specify pwmtype in argument with value pwm or softpwm: get_platform_pwm(pwmtype="pwm") or get_platform_type(pwmtype="softpwm")')
     elif plat == Platform.UNKNOWN:
         raise RuntimeError('Could not determine platform.')
