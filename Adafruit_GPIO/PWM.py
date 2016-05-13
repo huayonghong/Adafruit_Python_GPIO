@@ -163,10 +163,10 @@ def get_platform_pwm(**keywords):
         if "pwmtype" in keywords.keys():
             if keywords["pwmtype"] == "pwm":
                 import CHIP_IO.PWM
-                return CHIP_PWM_Adapter(CHIP_IO.PWM, **keywords)
+                return CHIP_PWM_Adapter(CHIP_IO.PWM)
             elif keywords["pwmtype"] == "softpwm":
                 import CHIP_IO.SOFTPWM
-                return CHIP_PWM_Adapter(CHIP_IO.SOFTPWM, **keywords)
+                return CHIP_PWM_Adapter(CHIP_IO.SOFTPWM)
         else:
             raise ValueError('For CHIP, you need to specify pwmtype in argument with value pwm or softpwm: get_platform_pwm(pwmtype="pwm") or get_platform_type(pwmtype="softpwm")')
     elif plat == Platform.UNKNOWN:
