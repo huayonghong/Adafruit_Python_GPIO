@@ -60,7 +60,8 @@ def disable_FTDI_driver():
         # Mac OS commands to disable FTDI driver.
         _check_running_as_root()
         subprocess.call('kextunload -b com.apple.driver.AppleUSBFTDI', shell=True)
-        subprocess.call('kextunload /System/Library/Extensions/FTDIUSBSerialDriver.kext', shell=True)
+        if os.path.exists('/System/Library/Extensions/FTDIUSBSerialDriver.kext'):
+            subprocess.call('kextunload /System/Library/Extensions/FTDIUSBSerialDriver.kext', shell=True)
     elif sys.platform.startswith('linux'):
         logger.debug('Detected Linux')
         # Linux commands to disable FTDI driver.
@@ -77,7 +78,8 @@ def enable_FTDI_driver():
         # Mac OS commands to enable FTDI driver.
         _check_running_as_root()
         subprocess.check_call('kextload -b com.apple.driver.AppleUSBFTDI', shell=True)
-        subprocess.check_call('kextload /System/Library/Extensions/FTDIUSBSerialDriver.kext', shell=True)
+        if os.path.exists('/System/Library/Extensions/FTDIUSBSerialDriver.kext'):
+            subprocess.call('kextunload /System/Library/Extensions/FTDIUSBSerialDriver.kext', shell=True)
     elif sys.platform.startswith('linux'):
         logger.debug('Detected Linux')
         # Linux commands to enable FTDI driver.
