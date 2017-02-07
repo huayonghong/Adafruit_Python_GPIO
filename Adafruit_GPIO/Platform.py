@@ -26,6 +26,7 @@ UNKNOWN          = 0
 RASPBERRY_PI     = 1
 BEAGLEBONE_BLACK = 2
 MINNOWBOARD      = 3
+EDISON           = 4
 
 def platform_detect():
     """Detect if running on the Raspberry Pi or Beaglebone Black and return the
@@ -52,6 +53,8 @@ def platform_detect():
         import mraa 
         if mraa.getPlatformName()=='MinnowBoard MAX':
             return MINNOWBOARD
+        elif mraa.getPlatformName()=='Intel Edison':
+            return EDISON
     except ImportError:
         pass
     
