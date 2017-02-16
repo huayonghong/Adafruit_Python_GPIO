@@ -923,18 +923,13 @@ class OneWireDevice(object):
             self._ft232h.output(pin, value)
 
         # Calculate the mask for the GPIO when 1-wire is low
-        self._ft232h.setup(self._pin, GPIO.OUT)
-        self._ft232h.output(pin, GPIO.LOW)
+        self._ft232h.setup_pins({self._pin: GPIO.OUT},{self._pin: GPIO.LOW}, write=False)
         self._low = self._ft232h.mpsse_gpio()
 
         # Calculate the mask for the GPIO when 1-wire is high
-        self._ft232h.setup(self._pin, GPIO.IN)
-        self._ft232h.output(pin, GPIO.HIGH)
+        self._ft232h.setup_pins({self._pin: GPIO.IN},{self._pin: GPIO.HIGH}, write=False)
         self._high = self._ft232h.mpsse_gpio()
 
-        # Let the GPIO settle
-        time.sleep(0.1)
-    
     # Here begins the 1-wire stuff
 
     # Send a 1-wire reset on the GPIO, This makes all slaves listen up for commands.
