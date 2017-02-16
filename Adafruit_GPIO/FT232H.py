@@ -26,6 +26,7 @@ import os
 import subprocess
 import sys
 import time
+import struct
 
 import ftdi1 as ftdi
 
@@ -254,6 +255,18 @@ class FT232H(GPIO.BaseGPIO):
             if tries >= max_retries:
                 raise RuntimeError('Could not synchronize with FT232H!')
 
+    def mpsse_clock(self, clock_hz, three_phase=False):
+        # Compute divisor for requested clock.
+        # Use equation from section 3.8.1 of:
+        #  http://www.ftdichip.com/Support/Documents/AppNotes/AN_108_Command_Processor_for_MPSSE_and_MCU_Host_Bus_Emulation_Modes.pdf
+        # Note equation is using 60mhz master clock instead of 12mhz.
+        divisor = int(math.ceil((30000000.0-float(clock_hz))/float(clock_hz))) & 0xFFFF
+        if three_phase:
+            divisor = int(divisor*(2.0/3.0))
+        logger.debug('Setting clockspeed with divisor value {0}'.format(divisor))
+        # return command to set divisor from low and high byte values.
+        return bytearray((0x86, divisor & 0xFF, (divisor >> 8) & 0xFF))
+
     def mpsse_set_clock(self, clock_hz, adaptive=False, three_phase=False):
         """Set the clock speed of the MPSSE engine.  Can be any value from 450hz
         to 30mhz and will pick that speed or the closest speed below it.
@@ -273,16 +286,8 @@ class FT232H(GPIO.BaseGPIO):
             self._write('\x8C')
         else:
             self._write('\x8D')
-        # Compute divisor for requested clock.
-        # Use equation from section 3.8.1 of:
-        #  http://www.ftdichip.com/Support/Documents/AppNotes/AN_108_Command_Processor_for_MPSSE_and_MCU_Host_Bus_Emulation_Modes.pdf
-        # Note equation is using 60mhz master clock instead of 12mhz.
-        divisor = int(math.ceil((30000000.0-float(clock_hz))/float(clock_hz))) & 0xFFFF
-        if three_phase:
-            divisor = int(divisor*(2.0/3.0))
-        logger.debug('Setting clockspeed with divisor value {0}'.format(divisor))
-        # Send command to set divisor from low and high byte values.
-        self._write(str(bytearray((0x86, divisor & 0xFF, (divisor >> 8) & 0xFF))))
+        clock_command = self.mpsse_clock(clock_hz, three_phase)
+        self._write(str(clock_command))
 
     def mpsse_read_gpio(self):
         """Read both GPIO bus states and return a 16 bit value with their state.
@@ -815,3 +820,336 @@ class I2CDevice(object):
         """Read a signed 16-bit value from the specified register, in big
         endian byte order."""
         return self.readS16(register, little_endian=False)
+
+class OneWireDevice(object):
+
+    def __init__(self, ft232h, pin, overdrive=False):
+        self._pin = pin
+        self._ft232h = ft232h
+        self._buffer = False
+        self._output = None
+
+        # setup the clock and get delay timing commands
+        self._ft232h.mpsse_set_clock(30000000, False, False)
+        self.enable_overdrive(overdrive)
+
+        # Two ways to delay. dump a byte to tms, or pulse the clock for n
+        # bits. A 1 bit pulse seems to take the same as time as a 8bit 
+        # dump to TMS? Default is to pulse the clock.
+        self._tms_dump    = '\x4a\x01\xff'  # Dump 8 bits to TMS
+        self._pb          = '\x8e\x01'      # Pulse clock (1 bits) 
+        self._delay       = self._pb
+
+        # MPSSE Command to read GPIO
+        self._read_gpio   = '\x81\x83'
+
+        # Set up our GPIO mask for 1-Wire, and leave it high
+        self.set_pin(pin, GPIO.OUT, GPIO.HIGH)
+
+
+    # Return the MPSSE command required to set the clock to a given frequency
+    # for the provided delay
+    def _get_delay_cmd(self, seconds):
+        if seconds == 0:
+            clock_hz = 30000000.0
+        else:
+            clock_hz = ( 1.00 / seconds ) * 2 
+        return self._ft232h.mpsse_clock(clock_hz, False)
+
+    # Calculate the delay clocks for 1Wire timings
+    def enable_overdrive(self, overdrive):
+        if overdrive:
+            logger.debug('1Wire: Overdrive is enabled')
+            # overdrive speeds
+            self._overdrive = True
+            self._clock_A = self._get_delay_cmd(0.0000010)
+            self._clock_B = self._get_delay_cmd(0.0000075)
+            self._clock_C = self._get_delay_cmd(0.0000075)
+            self._clock_D = self._get_delay_cmd(0.0000025)
+            self._clock_E = self._get_delay_cmd(0.0000010)
+            self._clock_F = self._get_delay_cmd(0.0000070)
+            self._clock_G = self._get_delay_cmd(0.0000025)
+            self._clock_H = self._get_delay_cmd(0.0000700)
+            self._clock_I = self._get_delay_cmd(0.0000085)
+            self._clock_J = self._get_delay_cmd(0.0000400)
+        else:
+            # standard clock speeds
+            logger.debug('1Wire: Overdrive is disabled')
+            self._overdrive = False
+            self._clock_A = self._get_delay_cmd(0.000006)
+            self._clock_B = self._get_delay_cmd(0.000064)
+            self._clock_C = self._get_delay_cmd(0.000060)
+            self._clock_D = self._get_delay_cmd(0.000010)
+            self._clock_E = self._get_delay_cmd(0.000009)
+            self._clock_F = self._get_delay_cmd(0.000055)
+            self._clock_G = self._get_delay_cmd(0.000000)
+            self._clock_H = self._get_delay_cmd(0.000480)
+            self._clock_I = self._get_delay_cmd(0.000070)
+            self._clock_J = self._get_delay_cmd(0.000410)
+
+    # Buffer write commands and then send them to the MPSSE with a flush
+    def enable_command_buffer(self):
+        if self._buffer:
+            raise Exception("Buffering was already enabled!!")
+        self._buffer = True
+        self._output = None
+
+    # flush buffered commands to the MPSSE
+    def flush_command_buffer(self):
+        self._buffer = False
+        if self._output is not None:
+            self._write(self._output)
+            self._output = None
+
+    def _write(self, string):
+        if self._buffer:
+            if self._output is None:
+                self._output = string
+            else:
+                self._output += string
+            return
+        self._ft232h._write(string)
+
+    def _read(self, length, timeout=5):
+        return self._ft232h._poll_read(length, timeout)
+
+    # Set the GPIO to the state requested and update the self.low, self.high
+    # values to take into account the changed pin.
+    def set_pin(self, pin, mode, value):
+
+        # Update pin state to that requested
+        if pin is not self._pin:
+            self._ft232h.setup(pin, mode)
+            self._ft232h.output(pin, value)
+
+        # Calculate the mask for the GPIO when 1-wire is low
+        self._ft232h.setup(self._pin, GPIO.OUT)
+        self._ft232h.output(pin, GPIO.LOW)
+        self._low = self._ft232h.mpsse_gpio()
+
+        # Calculate the mask for the GPIO when 1-wire is high
+        self._ft232h.setup(self._pin, GPIO.IN)
+        self._ft232h.output(pin, GPIO.HIGH)
+        self._high = self._ft232h.mpsse_gpio()
+
+        # Let the GPIO settle
+        time.sleep(0.1)
+    
+    # Here begins the 1-wire stuff
+
+    # Send a 1-wire reset on the GPIO, This makes all slaves listen up for commands.
+    # It also detects the presance of the slaves. If nothing responds, then no devices
+    # are connected and we return false.
+    def reset(self):
+
+        logger.debug("1Wire: Reset")
+        commands = self._clock_H + self._low + self._delay + self._high + self._clock_I +\
+                    self._delay + self._read_gpio + self._clock_J + self._delay + \
+                    self._read_gpio
+
+        self._write(str(commands))
+        present = self._read(4)
+
+        if present == '\xff'*4:
+            if self._overdrive:
+                logger.debug("1Wire: No Devices Present. Disabling Overdrive")
+                self.enable_overdrive(False)
+                return self.reset()
+            else:
+                logger.debug("1Wire: No Devices Present")
+                return False
+        else:
+            logger.debug("1Wire: Devices Present")
+            return True
+
+    # Write a bit to the 1-wire bus, either a 1 or a 0
+    def write_bit(self, bit):
+        if bit:
+            commands = self._clock_A + self._low + self._delay + self._high + \
+            self._clock_B + self._delay 
+        else:
+            commands = self._clock_C + self._low + self._delay + self._high + \
+            self._clock_D + self._delay
+
+        self._write(str(commands))
+
+    def read_command(self, bits=1):
+        for i in range(bits):
+            commands = self._clock_A + self._low + self._delay + self._high + \
+            self._clock_E + self._delay + self._read_gpio + self._clock_F + \
+            self._delay
+            self._write(str(commands))
+
+    def read_response(self, bits=1):
+        states = []
+        read = self._read(2 * bits)
+        for i in range(0,2*bits,2):
+            bit = bytearray([read[i], read[i+1]])
+            states.append( struct.unpack("H", str(bit))[0] >> self._pin & 01 )
+        if bits == 1:
+            return states.pop()
+        return states
+
+    # Read a bit from the 1-wire bus.
+    def read_bit(self):
+        self.read_command()
+        return self.read_response()
+
+    # Use the write_bit function to write bytes out to the bus
+    def write_byte(self, byte):
+        manage_buffer = self._buffer == False
+        if manage_buffer:
+            self.enable_command_buffer()
+        for i in range(8):
+            self.write_bit(byte & 1)
+            byte >>= 1
+        if manage_buffer:
+            self.flush_command_buffer()
+
+    # write multiple bytes to the bus
+    def write_bytes(self, data):
+        for byte in data:
+            self.write_byte(byte)
+
+    # Use the read_bit function to read bytes from the bus
+    def read_byte(self):
+        byte = 0
+        manage_buffer = self._buffer == False
+        if manage_buffer:
+            self.enable_command_buffer()
+        self.read_command(8)
+        if manage_buffer:
+            self.flush_command_buffer()
+        bits = self.read_response(8)
+        for i in range(8):
+            byte |= bits[i] << i
+        return byte 
+
+    # Read multiple bytes from the 1-wire bus
+    def read_bytes(self, count):
+        data = bytearray(count)
+        for i in range(count):
+            data[i] = self.read_byte()
+        return data
+
+    # read multiple bits from the 1-wire bus. Used for device discovery
+    def read_bits(self, count):
+        bits = []
+        for i in range(count):
+            bits.append( self.read_bit() )
+        return bits
+    
+    # There is only one device on the bus, so ask it to identify itself.
+    def rom_read(self):
+        rom = bytearray(8)
+        self.write_byte(0x33)
+        for i in range(8):
+            rom[i] = self.read_byte()
+        return rom 
+
+    # There is only one device on the bus so skip ROM matching.
+    def skip_rom(self):
+        self.write_byte(0xcc)
+
+    # Target the ROM specified
+    def _match_rom(self, rom):
+        if type(rom) is str:
+            rom = self.string2bytes(rom)
+        self.write_byte(0x55)
+        self.write_bytes(rom)
+
+    # Address the ROM if given, else perform a skip_rom()
+    def address_rom(self, rom):
+        if rom is None:
+            self.skip_rom()
+        else:
+            self._match_rom(rom)
+
+    # Search for ROMs on the 1-wire bus
+    def search_roms(self):
+        roms_found = []
+        partials = [ [] ]
+        logger.debug("Search Start")
+        while len(partials) > 0:
+            rom = partials.pop()
+            roms_found.append( self.bytes2string(self._search(rom, partials)) )
+        logger.debug("Search Complete")
+        return roms_found
+
+    # When replaying the partial rom, flush the search out to the MPSSE every 10 bits
+    # improves performance.
+    def _search_flush_rom(self, count):
+        self.flush_command_buffer()
+        self.read_response(2*count)
+        return 0
+
+    # Do the search for each partial ROM
+    def _search(self, rom=[], partials=[]):
+
+        if self.reset() is False:
+            return
+
+        # Dump any partial rom to the MPSSE in 10bit chunks
+        self.enable_command_buffer()
+        self.write_byte(0xf0)
+        count = 0
+        for bit in rom:
+            if count == 10:
+                count = self._search_flush_rom(10)
+                self.enable_command_buffer()
+            count += 1
+            self.read_command(2)
+            self.write_bit(bit)
+        self._search_flush_rom(count)
+
+        # Continue the search from where we are.
+        for i in range(64 - len(rom)):
+            bits = self.read_bits(2)
+            if bits[0] != bits[1]:
+                rom.append(bits[0])
+                self.write_bit(bits[0])
+            elif bits == [False, False]:
+                np = list(rom)
+                np.append(True)
+                partials.append( np )
+                rom.append(False)
+                self.write_bit(False)
+            else:
+                raise Exception("Search Failed. Device Comms Interrupted")
+
+        complete = bytearray(8)
+        for i in range(8):
+            byte = 0
+            for o in range(8):
+                bit = rom[(i*8)+o]
+                byte |= bit << o
+            complete[i] = byte
+
+        logger.debug("Search Found: ROM {}".format( self.bytes2string(complete)))
+        if self.crc(complete) is not 0x00:
+            raise Exception("CRC Check Failed")
+        return complete
+
+   # Return an a string representation of the device ROM
+    def bytes2string(self, bytesarray):
+        return ":".join("{:02x}".format(c) for c in bytesarray)
+
+    # Convert a hexadecimal string to bytes
+    def string2bytes(self, string):
+        return bytearray(codecs.decode(string.replace(":",""),"hex"))
+
+    # Calculate CRC, result should be 0x00
+    def crc(self, data):
+        poly = 0x8c # x8,x5,x4,+ 1 inverse of 0x131 & 0xff
+        crc = 0x00
+        for byte in data:
+            for bit in range(8):
+                # When bit is on, shift and xor, else just shift
+                if ( byte ^ crc) & 0x01:
+                    crc >>= 1
+                    crc ^= poly
+                else:
+                    crc >>= 1
+                byte >>= 1
+        return crc
+
