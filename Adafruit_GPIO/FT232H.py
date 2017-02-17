@@ -823,14 +823,19 @@ class I2CDevice(object):
 
 class OneWireDevice(object):
 
-    def __init__(self, ft232h, pin, overdrive=False):
+    def __init__(self, ft232h, pin, overdrive=False, default_hz=100000, three_phase=True):
         self._pin = pin
         self._ft232h = ft232h
         self._buffer = False
         self._output = None
+        self._three_phase = three_phase
+        self._default_hz = default_hz
 
-        # setup the clock and get delay timing commands
-        self._ft232h.mpsse_set_clock(30000000, False, False)
+        # Setup the clock to be I2C friendly (100000hz and 3phase by default)
+        # We return clock to this after each 1wire command pipeline completes
+        self._ft232h.mpsse_set_clock(default_hz, False, three_phase)
+
+        # Set the delays/clock speeds for standard/overdrive timings
         self.enable_overdrive(overdrive)
 
         # Two ways to delay. dump a byte to tms, or pulse the clock for n
@@ -846,7 +851,6 @@ class OneWireDevice(object):
         # Set up our GPIO mask for 1-Wire, and leave it high
         self.set_pin(pin, GPIO.OUT, GPIO.HIGH)
 
-
     # Return the MPSSE command required to set the clock to a given frequency
     # for the provided delay
     def _get_delay_cmd(self, seconds):
@@ -854,7 +858,7 @@ class OneWireDevice(object):
             clock_hz = 30000000.0
         else:
             clock_hz = ( 1.00 / seconds ) * 2 
-        return self._ft232h.mpsse_clock(clock_hz, False)
+        return self._ft232h.mpsse_clock(clock_hz, self._three_phase)
 
     # Calculate the delay clocks for 1Wire timings
     def enable_overdrive(self, overdrive):
@@ -887,6 +891,9 @@ class OneWireDevice(object):
             self._clock_I = self._get_delay_cmd(0.000070)
             self._clock_J = self._get_delay_cmd(0.000410)
 
+        # Default clock speed
+        self._clock_default = self._ft232h.mpsse_clock(self._default_hz, self._three_phase)
+
     # Buffer write commands and then send them to the MPSSE with a flush
     def enable_command_buffer(self):
         if self._buffer:
@@ -901,6 +908,7 @@ class OneWireDevice(object):
             self._write(self._output)
             self._output = None
 
+    # Write the command pipeline, but append the default_clock before talking to the MPSSE
     def _write(self, string):
         if self._buffer:
             if self._output is None:
@@ -908,6 +916,7 @@ class OneWireDevice(object):
             else:
                 self._output += string
             return
+        string += str(self._clock_default)
         self._ft232h._write(string)
 
     def _read(self, length, timeout=5):
@@ -961,7 +970,7 @@ class OneWireDevice(object):
     def write_bit(self, bit):
         if bit:
             commands = self._clock_A + self._low + self._delay + self._high + \
-            self._clock_B + self._delay 
+            self._clock_B + self._delay
         else:
             commands = self._clock_C + self._low + self._delay + self._high + \
             self._clock_D + self._delay
