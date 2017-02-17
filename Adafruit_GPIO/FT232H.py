@@ -821,7 +821,7 @@ class I2CDevice(object):
         endian byte order."""
         return self.readS16(register, little_endian=False)
 
-class OneWireDevice(object):
+class OneWireMaster(object):
 
     def __init__(self, ft232h, pin, overdrive=False, default_hz=100000, three_phase=True):
         self._pin = pin
