@@ -21,6 +21,7 @@
 # THE SOFTWARE.
 import logging
 import subprocess
+import time
 
 import smbus
 
@@ -104,97 +105,152 @@ class Device(object):
     def writeRaw8(self, value):
         """Write an 8-bit value on the bus (without register)."""
         value = value & 0xFF
-        self._bus.write_byte(self._address, value)
-        self._logger.debug("Wrote 0x%02X",
+        try:
+            self._bus.write_byte(self._address, value)
+            self._logger.debug("Wrote 0x%02X",
                      value)
+        except IOError, err:
+            self._logger.exception("error in writeRaw8: %s", err)
+            time.sleep(0.001)
 
     def write8(self, register, value):
         """Write an 8-bit value to the specified register."""
         value = value & 0xFF
-        self._bus.write_byte_data(self._address, register, value)
-        self._logger.debug("Wrote 0x%02X to register 0x%02X",
+        try:
+            self._bus.write_byte_data(self._address, register, value)
+            self._logger.debug("Wrote 0x%02X to register 0x%02X",
                      value, register)
+        except IOError, err:
+            self._logger.exception("error in write8: %s", err)
+            time.sleep(0.001)
 
     def write16(self, register, value):
         """Write a 16-bit value to the specified register."""
         value = value & 0xFFFF
-        self._bus.write_word_data(self._address, register, value)
-        self._logger.debug("Wrote 0x%04X to register pair 0x%02X, 0x%02X",
+        try:
+            self._bus.write_word_data(self._address, register, value)
+            self._logger.debug("Wrote 0x%04X to register pair 0x%02X, 0x%02X",
                      value, register, register+1)
+        except IOError, err:
+            self._logger.exception("error in write16: %s", err)
+            time.sleep(0.001)
 
     def writeList(self, register, data):
         """Write bytes to the specified register."""
-        self._bus.write_i2c_block_data(self._address, register, data)
-        self._logger.debug("Wrote to register 0x%02X: %s",
+        try:
+            self._bus.write_i2c_block_data(self._address, register, data)
+            self._logger.debug("Wrote to register 0x%02X: %s",
                      register, data)
+        except IOError, err:
+            self._logger.exception("error in writeList: %s", err)
+            time.sleep(0.001)
 
     def readList(self, register, length):
         """Read a length number of bytes from the specified register.  Results
         will be returned as a bytearray."""
-        results = self._bus.read_i2c_block_data(self._address, register, length)
-        self._logger.debug("Read the following from register 0x%02X: %s",
+        try:
+            results = self._bus.read_i2c_block_data(self._address, register, length)
+            self._logger.debug("Read the following from register 0x%02X: %s",
                      register, results)
-        return results
+            return results
+        except IOError, err:
+            self._logger.exception("error in readList: %s", err)
+            time.sleep(0.001)
 
     def readRaw8(self):
         """Read an 8-bit value on the bus (without register)."""
-        result = self._bus.read_byte(self._address) & 0xFF
-        self._logger.debug("Read 0x%02X",
+        try:
+            result = self._bus.read_byte(self._address) & 0xFF
+            self._logger.debug("Read 0x%02X",
                     result)
-        return result
+            return result
+        except IOError, err:
+            self._logger.exception("error in readRaw8: %s", err)
+            time.sleep(0.001)
 
     def readU8(self, register):
         """Read an unsigned byte from the specified register."""
-        result = self._bus.read_byte_data(self._address, register) & 0xFF
-        self._logger.debug("Read 0x%02X from register 0x%02X",
+        try:
+            result = self._bus.read_byte_data(self._address, register) & 0xFF
+            self._logger.debug("Read 0x%02X from register 0x%02X",
                      result, register)
-        return result
+            return result
+        except IOError, err:
+            self._logger.exception("error in readU8: %s", err)
+            time.sleep(0.001)
 
     def readS8(self, register):
         """Read a signed byte from the specified register."""
-        result = self.readU8(register)
-        if result > 127:
-            result -= 256
-        return result
+        try:
+            result = self.readU8(register)
+            if result > 127:
+                result -= 256
+            return result
+        except IOError, err:
+            self._logger.exception("error in readS8: %s", err)
+            time.sleep(0.001)
 
     def readU16(self, register, little_endian=True):
         """Read an unsigned 16-bit value from the specified register, with the
         specified endianness (default little endian, or least significant byte
         first)."""
-        result = self._bus.read_word_data(self._address,register) & 0xFFFF
-        self._logger.debug("Read 0x%04X from register pair 0x%02X, 0x%02X",
+        try:
+            result = self._bus.read_word_data(self._address,register) & 0xFFFF
+            self._logger.debug("Read 0x%04X from register pair 0x%02X, 0x%02X",
                            result, register, register+1)
-        # Swap bytes if using big endian because read_word_data assumes little
-        # endian on ARM (little endian) systems.
-        if not little_endian:
-            result = ((result << 8) & 0xFF00) + (result >> 8)
-        return result
+            # Swap bytes if using big endian because read_word_data assumes little
+            # endian on ARM (little endian) systems.
+            if not little_endian:
+                result = ((result << 8) & 0xFF00) + (result >> 8)
+            return result
+        except IOError, err:
+            self._logger.exception("error in readU16: %s", err)
 
     def readS16(self, register, little_endian=True):
         """Read a signed 16-bit value from the specified register, with the
         specified endianness (default little endian, or least significant byte
         first)."""
-        result = self.readU16(register, little_endian)
-        if result > 32767:
-            result -= 65536
-        return result
+        try:
+            result = self.readU16(register, little_endian)
+            if result > 32767:
+                result -= 65536
+            return result
+        except IOError, err:
+            self._logger.exception("error in readS16: %s", err)
+            time.sleep(0.001)
 
     def readU16LE(self, register):
         """Read an unsigned 16-bit value from the specified register, in little
         endian byte order."""
-        return self.readU16(register, little_endian=True)
+        try:
+            return self.readU16(register, little_endian=True)
+        except IOError, err:
+            self._logger.exception("error in readU16LE: %s", err)
+            time.sleep(0.001)
 
     def readU16BE(self, register):
         """Read an unsigned 16-bit value from the specified register, in big
         endian byte order."""
-        return self.readU16(register, little_endian=False)
+        try:
+            return self.readU16(register, little_endian=False)
+        except IOError, err:
+            self._logger.exception("error in readU16BE: %s", err)
+            time.sleep(0.001)
 
     def readS16LE(self, register):
         """Read a signed 16-bit value from the specified register, in little
         endian byte order."""
-        return self.readS16(register, little_endian=True)
+        try:
+            return self.readS16(register, little_endian=True)
+        except IOError, err:
+            self._logger.exception("error in readS16LE: %s", err)
+            time.sleep(0.001)
 
     def readS16BE(self, register):
         """Read a signed 16-bit value from the specified register, in big
         endian byte order."""
-        return self.readS16(register, little_endian=False)
+        try:
+            return self.readS16(register, little_endian=False)
+        except IOError, err:
+            self._logger.exception("error in readS16BE: %s", err)
+            time.sleep(0.001)
