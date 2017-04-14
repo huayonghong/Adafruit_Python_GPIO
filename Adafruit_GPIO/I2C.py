@@ -56,13 +56,13 @@ def get_default_bus():
         return 1
     elif plat == Platform.CHIP:
         # CHIP has 2 user accessible I2C busses, default to 2 (U1425 and U14_26)
-		# We want the CHIP to default to 2 as the PocketCHIP header breaks out
-		# this interface
-		# But, the CHIP Pro defaults to bus 1
-		import CHIP_IO.Utilities as UT
-		if UT.is_chip_pro():
-		    return 1
-		else:
+        # We want the CHIP to default to 2 as the PocketCHIP header breaks out
+        # this interface
+        # But, the CHIP Pro defaults to bus 1
+        import CHIP_IO.Utilities as UT
+        if UT.is_chip_pro():
+            return 1
+        else:
             return 2
     else:
         raise RuntimeError('Could not determine default I2C bus for platform.')
