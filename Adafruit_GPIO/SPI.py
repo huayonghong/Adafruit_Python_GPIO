@@ -38,9 +38,14 @@ class SpiDev(object):
         1 and device 0.
         """
         import spidev
-        self._device = spidev.SpiDev()
+        self.spidev = spidev
+        self._device = None
+        self.open(port=port, device=device, max_speed_hz=max_speed_hz)
+
+    def open(self, port, device, max_speed_hz=500000):
+        self._device = self.spidev.SpiDev()
         self._device.open(port, device)
-        self._device.max_speed_hz=max_speed_hz
+        self._device.max_speed_hz = max_speed_hz
         # Default to mode 0.
         self._device.mode = 0
 
@@ -95,12 +100,17 @@ class SpiDev(object):
         return bytearray(self._device.xfer2(data))
 
 class SpiDevMraa(object):
-    """Hardware SPI implementation with the mraa library on Minnowboard"""
-    def __init__(self, port, device, max_speed_hz=500000):
-        import mraa
-        self._device = mraa.Spi(0)
+    """Hardware SPI implementation with the mraa library"""
+    def __init__(self, port, device=0, max_speed_hz=500000):
+        import mraa as mraa_spi
+        self.mraa_spi = mraa_spi
+        self._device = None
+        self.open(device)
+
+    def open(self, device):
+        self._device = self.mraa_spi.Spi(device)
         self._device.mode(0)
-        
+
     def set_clock_hz(self, hz):
         """Set the speed of the SPI clock in hertz.  Note that not all speeds
         are supported and a lower speed might be chosen by the hardware.
@@ -139,7 +149,8 @@ class SpiDevMraa(object):
         
     def close(self):
         """Close communication with the SPI device."""
-        self._device.Spi()
+        del self._device
+        self._device = None
 
     def write(self, data):
         """Half-duplex SPI write.  The specified array of bytes will be clocked
