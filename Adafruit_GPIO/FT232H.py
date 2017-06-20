@@ -41,6 +41,7 @@ MSBFIRST = 0
 LSBFIRST = 1
 
 _REPEAT_DELAY = 4
+FT232HPrintedOnce = 0
 
 
 def _check_running_as_root():
@@ -185,7 +186,15 @@ class FT232H(GPIO.BaseGPIO):
         #else:
         #	logger.debug('Modem status error {0}'.format(ret))
         length = len(string)
-        ret = ftdi.write_data(self._ctx, string, length)
+
+        try:
+            ret = ftdi.write_data(self._ctx, string); #compatible with libFtdi 1.3
+        except TypeError:
+            global FT232HPrintedOnce
+            if(FT232HPrintedOnce == 0):
+                print 'WARNING: Using ftdi.write_data function compatible with libFtdi 1.2'
+                FT232HPrintedOnce = 1;
+            ret = ftdi.write_data(self._ctx, string, length) #compatible with libFtdi 1.2
         # Log the string that was written in a python hex string format using a very
         # ugly one-liner list comprehension for brevity.
         #logger.debug('Wrote {0}'.format(''.join(['\\x{0:02X}'.format(ord(x)) for x in string])))
@@ -554,6 +563,8 @@ class I2CDevice(object):
     def _transaction_start(self):
         """Start I2C transaction."""
         # Clear command buffer and expected response bytes.
+        ret, data = ftdi.read_data(self._ft232h._ctx, 100)#IMPORTANT!!!! PG HACK
+
         self._command = []
         self._expected = 0
 
@@ -742,20 +753,21 @@ class I2CDevice(object):
         self._verify_acks(response[:-1])
         return response[-1]
 
-    def readU8(self, register):
+    def readU8(self, register, checkAck=True):
         """Read an unsigned byte from the specified register."""
         self._idle()
         self._transaction_start()
         self._i2c_start()
         self._i2c_write_bytes([self._address_byte(False), register])
-        self._i2c_stop()
+        #self._i2c_stop()
         self._i2c_idle()
         self._i2c_start()
         self._i2c_write_bytes([self._address_byte(True)])
         self._i2c_read_bytes(1)
         self._i2c_stop()
         response = self._transaction_end()
-        self._verify_acks(response[:-1])
+        if(checkAck):
+            self._verify_acks(response[:-1])
         return response[-1]
 
     def readS8(self, register):
@@ -773,7 +785,7 @@ class I2CDevice(object):
         self._transaction_start()
         self._i2c_start()
         self._i2c_write_bytes([self._address_byte(False), register])
-        self._i2c_stop()
+        #self._i2c_stop()
         self._i2c_idle()
         self._i2c_start()
         self._i2c_write_bytes([self._address_byte(True)])
