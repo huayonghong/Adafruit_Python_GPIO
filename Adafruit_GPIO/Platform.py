@@ -26,12 +26,15 @@ UNKNOWN          = 0
 RASPBERRY_PI     = 1
 BEAGLEBONE_BLACK = 2
 MINNOWBOARD      = 3
+ORANGE_PI        = 4
 
 def platform_detect():
     """Detect if running on the Raspberry Pi or Beaglebone Black and return the
     platform type.  Will return RASPBERRY_PI, BEAGLEBONE_BLACK, or UNKNOWN."""
     # Handle Raspberry Pi
     pi = pi_version()
+    if pi == 'orangepi':
+        return ORANGE_PI
     if pi is not None:
         return RASPBERRY_PI
 
@@ -105,6 +108,9 @@ def pi_version():
     elif match.group(1) == 'BCM2835':
         # Pi 3 / Pi on 4.9.x kernel
         return 3
+    elif match.group(1) == 'sun8i':
+        # perhaps we need additional tests, this will pass for nanopi as well
+        return 'orangepi'
     else:
         # Something else, not a pi.
         return None
