@@ -111,13 +111,13 @@ class BaseGPIO(object):
         should be type IN.  Edge must be RISING, FALLING or BOTH.
         """
         raise NotImplementedError
-   
+
     def remove_event_detect(self, pin):
         """Remove edge detection for a particular GPIO channel.  Pin should be
         type IN.
         """
         raise NotImplementedError
-  
+
     def add_event_callback(self, pin, callback):
         """Add a callback for an event already defined using add_event_detect().
         Pin should be type IN.
@@ -158,7 +158,8 @@ class BaseGPIO(object):
 class RPiGPIOAdapter(BaseGPIO):
     """GPIO implementation for the Raspberry Pi using the RPi.GPIO library."""
 
-    def __init__(self, rpi_gpio, mode=None):
+    def __init__(self, mode=None):
+        import RPi.GPIO as rpi_gpio
         self.rpi_gpio = rpi_gpio
         # Suppress warnings about GPIO in use.
         rpi_gpio.setwarnings(False)
@@ -258,7 +259,8 @@ class AdafruitBBIOAdapter(BaseGPIO):
     library.
     """
 
-    def __init__(self, bbio_gpio):
+    def __init__(self):
+        import Adafruit_BBIO.GPIO as bbio_gpio
         self.bbio_gpio = bbio_gpio
         # Define mapping of Adafruit GPIO library constants to RPi.GPIO constants.
         self._dir_mapping = { OUT:      bbio_gpio.OUT,
@@ -347,10 +349,11 @@ class AdafruitBBIOAdapter(BaseGPIO):
         else:
             self.bbio_gpio.cleanup(pin)
 
-class AdafruitMinnowAdapter(BaseGPIO):
-    """GPIO implementation for the Minnowboard + MAX using the mraa library"""
-    
-    def __init__(self,mraa_gpio):
+class AdafruitMraaAdapter(BaseGPIO):
+    """Generic GPIO implementation using the mraa library"""
+
+    def __init__(self):
+        import mraa as mraa_gpio
         self.mraa_gpio = mraa_gpio
         # Define mapping of Adafruit GPIO library constants to mraa constants
         self._dir_mapping = { OUT:      self.mraa_gpio.DIR_OUT,
@@ -366,20 +369,20 @@ class AdafruitMinnowAdapter(BaseGPIO):
         """Set the input or output mode for a specified pin.  Mode should be
         either DIR_IN or DIR_OUT.
         """
-        self.mraa_gpio.Gpio.dir(self.mraa_gpio.Gpio(pin),self._dir_mapping[mode])   
+        self.mraa_gpio.Gpio.dir(self.mraa_gpio.Gpio(pin),self._dir_mapping[mode])
 
     def output(self,pin,value):
         """Set the specified pin the provided high/low value.  Value should be
         either 1 (ON or HIGH), or 0 (OFF or LOW) or a boolean.
         """
         self.mraa_gpio.Gpio.write(self.mraa_gpio.Gpio(pin), value)
-    
+
     def input(self,pin):
         """Read the specified pin and return HIGH/true if the pin is pulled high,
         or LOW/false if pulled low.
         """
-        return self.mraa_gpio.Gpio.read(self.mraa_gpio.Gpio(pin))    
-    
+        return self.mraa_gpio.Gpio.read(self.mraa_gpio.Gpio(pin))
+
     def add_event_detect(self, pin, edge, callback=None, bouncetime=-1):
         """Enable edge detection events for a particular GPIO channel.  Pin 
         should be type IN.  Edge must be RISING, FALLING or BOTH.  Callback is a
@@ -403,7 +406,7 @@ class AdafruitMinnowAdapter(BaseGPIO):
         """Wait for an edge.   Pin should be type IN.  Edge must be RISING, 
         FALLING or BOTH.
         """
-        self.bbio_gpio.wait_for_edge(self.mraa_gpio.Gpio(pin), self._edge_mapping[edge])
+        self.mraa_gpio.wait_for_edge(self.mraa_gpio.Gpio(pin), self._edge_mapping[edge])
 
 def get_platform_gpio(**keywords):
     """Attempt to return a GPIO instance for the platform which the code is being
@@ -414,13 +417,10 @@ def get_platform_gpio(**keywords):
     """
     plat = Platform.platform_detect()
     if plat == Platform.RASPBERRY_PI:
-        import RPi.GPIO
-        return RPiGPIOAdapter(RPi.GPIO, **keywords)
+        return RPiGPIOAdapter(**keywords)
     elif plat == Platform.BEAGLEBONE_BLACK:
-        import Adafruit_BBIO.GPIO
-        return AdafruitBBIOAdapter(Adafruit_BBIO.GPIO, **keywords)
-    elif plat == Platform.MINNOWBOARD:
-        import mraa
-        return AdafruitMinnowAdapter(mraa, **keywords)
+        return AdafruitBBIOAdapter(**keywords)
+    elif plat == Platform.MRAA:
+        return AdafruitMraaAdapter(**keywords)
     elif plat == Platform.UNKNOWN:
         raise RuntimeError('Could not determine platform.')
