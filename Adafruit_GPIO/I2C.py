@@ -72,7 +72,7 @@ def require_repeated_start():
       http://www.raspberrypi.org/forums/viewtopic.php?f=44&t=15840
     """
     plat = Platform.platform_detect()
-    if plat == Platform.RASPBERRY_PI:
+    if plat == Platform.RASPBERRY_PI and Platform.pi_version()=="BCM2708":
         # On the Raspberry Pi there is a bug where register reads don't send a
         # repeated start condition like the kernel smbus I2C driver functions
         # define.  As a workaround this bit in the BCM2708 driver sysfs tree can
