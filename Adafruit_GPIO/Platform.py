@@ -26,6 +26,7 @@ UNKNOWN          = 0
 RASPBERRY_PI     = 1
 BEAGLEBONE_BLACK = 2
 MINNOWBOARD      = 3
+PINE64           = 4
 
 def platform_detect():
     """Detect if running on the Raspberry Pi or Beaglebone Black and return the
@@ -54,6 +55,10 @@ def platform_detect():
             return MINNOWBOARD
     except ImportError:
         pass
+    
+    # Handle Pine64
+    if plat.lower().find('pine64') > -1:
+        return PINE64
     
     # Couldn't figure out the platform, just return unknown.
     return UNKNOWN

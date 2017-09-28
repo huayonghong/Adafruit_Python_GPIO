@@ -52,8 +52,13 @@ def get_default_bus():
     elif plat == Platform.BEAGLEBONE_BLACK:
         # Beaglebone Black has multiple I2C buses, default to 1 (P9_19 and P9_20).
         return 1
+    elif plat == Platform.PINE64:
+        # Pine64 has 2 i2c busses, bus0 is used for touchscreen, bus1 is on the pi2 connector.
+        return 1
+
     else:
         raise RuntimeError('Could not determine default I2C bus for platform.')
+
 
 def get_i2c_device(address, busnum=None, i2c_interface=None, **kwargs):
     """Return an I2C device for the specified address and on the specified bus.
