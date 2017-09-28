@@ -175,6 +175,12 @@ class TestGetDefaultBus(unittest.TestCase):
         bus = I2C.get_default_bus()
         self.assertEqual(bus, 1)
 
+    @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.PINE64))
+    def test_pine64(self):
+        I2C = safe_import_i2c()
+        bus = I2C.get_default_bus()
+        self.assertEqual(bus, 1)
+        
     @patch('Adafruit_GPIO.Platform.platform_detect', Mock(return_value=Platform.UNKNOWN))
     def test_unknown(self):
         I2C = safe_import_i2c()
