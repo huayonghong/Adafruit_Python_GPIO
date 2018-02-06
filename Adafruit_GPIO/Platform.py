@@ -47,7 +47,7 @@ def platform_detect():
     elif plat.lower().find('armv7l-with-glibc2.4') > -1:
         return BEAGLEBONE_BLACK
 
-
+    # Handle Nvidia TX2
     if plat.lower().find('tegra-aarch64-with-ubuntu') > -1:
         return TX2
         
