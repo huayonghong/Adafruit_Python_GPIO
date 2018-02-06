@@ -48,7 +48,7 @@ def platform_detect():
         return BEAGLEBONE_BLACK
 
 
-    if plat.lower().find('tegra-aarch64-with-Ubuntu') > -1:
+    if plat.lower().find('tegra-aarch64-with-ubuntu') > -1:
         return TX2
         
     # Handle Minnowboard
