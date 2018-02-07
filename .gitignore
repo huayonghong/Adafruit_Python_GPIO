@@ -3,5 +3,5 @@ dist/
 *.egg-info
 *.pyc
 setuptools*
-
+.DS_Store
 .idea
