@@ -50,7 +50,7 @@ def platform_detect():
     # Assumption is that mraa is installed
     try: 
         import mraa 
-        if mraa.getPlatformName()=='MinnowBoard MAX':
+        if mraa.getPlatformName()=='MinnowBoard MAX' or mraa.getPlatformName()=='MinnowBoard Compatible':
             return MINNOWBOARD
     except ImportError:
         pass
