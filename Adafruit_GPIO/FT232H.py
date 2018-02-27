@@ -20,6 +20,8 @@
 # THE SOFTWARE.
 
 import atexit
+import getpass
+import grp
 import logging
 import math
 import os
@@ -64,9 +66,8 @@ def disable_FTDI_driver():
     elif sys.platform.startswith('linux'):
         logger.debug('Detected Linux')
         # Linux commands to disable FTDI driver.
-        _check_running_as_root()
-        subprocess.call('modprobe -r -q ftdi_sio', shell=True)
-        subprocess.call('modprobe -r -q usbserial', shell=True)
+        subprocess.call('modprobe -r ftdi_sio', shell=True)
+        subprocess.call('modprobe -r usbserial', shell=True)
     # Note there is no need to disable FTDI drivers on Windows!
 
 def enable_FTDI_driver():
@@ -81,9 +82,8 @@ def enable_FTDI_driver():
     elif sys.platform.startswith('linux'):
         logger.debug('Detected Linux')
         # Linux commands to enable FTDI driver.
-        _check_running_as_root()
-        subprocess.check_call('modprobe -q ftdi_sio', shell=True)
-        subprocess.check_call('modprobe -q usbserial', shell=True)
+        subprocess.check_call('modprobe ftdi_sio', shell=True)
+        subprocess.check_call('modprobe usbserial', shell=True)
 
 def use_FT232H():
     """Disable any built in FTDI drivers which will conflict and cause problems
