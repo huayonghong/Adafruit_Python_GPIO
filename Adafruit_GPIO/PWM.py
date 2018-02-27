@@ -109,6 +109,61 @@ class BBIO_PWM_Adapter(object):
         self.bbio_pwm.stop(pin)
 
 
+class MRAA_PWM_Adapter(object):
+    """PWM implementation for the Mraa library."""
+
+    def __init__(self, mraa_pwm):
+        self.mraa_pwm = mraa_pwm
+        self._pins = {}
+
+    def __del__(self):
+        for pin in self._pins.keys():
+            self.stop(pin)
+
+    @staticmethod
+    def hz_to_ms(freq):
+        return 10.0e3/freq
+
+    def start(self, pin, dutycycle, frequency_hz=2000):
+        """Enable PWM output on specified pin.  Set to intiial percent duty cycle
+        value (0.0 to 100.0) and frequency (in Hz).
+        """
+        if dutycycle < 0.0 or dutycycle > 100.0:
+            raise ValueError('Invalid duty cycle value, must be between 0.0 to 100.0 (inclusive).')
+
+        if pin in self._pins.keys():
+            raise ValueError('Pin %r already initialized' % pin)
+
+        if not self.mraa_pwm.pinModeTest(pin, self.mraa_pwm.PIN_PWM):
+            raise ValueError("Pin %r don't support pwm" % pin)
+
+        self._pins[pin] = self.mraa_pwm.Pwm(pin)
+        self._pins[pin].write(dutycycle/100.0)
+        self._pins[pin].period_ms(self.hz_to_ms(frequency_hz))
+        self._pins[pin].enable(True)
+
+    def set_duty_cycle(self, pin, dutycycle):
+        """Set percent duty cycle of PWM output on specified pin.  Duty cycle must
+        be a value 0.0 to 100.0 (inclusive).
+        """
+        if dutycycle < 0.0 or dutycycle > 100.0:
+            raise ValueError('Invalid duty cycle value, must be between 0.0 to 100.0 (inclusive).')
+
+        if pin not in self._pins.keys():
+            raise ValueError('Pin not initializated, pin=%r' % pin)
+
+        self._pins[pin].write(dutycycle/100.0)
+
+    def set_frequency(self, pin, frequency_hz):
+        """Set frequency (in Hz) of PWM output on specified pin."""
+        self._pins[pin].period_ms(self.hz_to_ms(frequency_hz))
+
+    def stop(self, pin):
+        """Stop PWM output on specified pin."""
+        self._pins[pin].enable(False)
+        del self._pins[pin]
+
+
 def get_platform_pwm(**keywords):
     """Attempt to return a PWM instance for the platform which the code is being
     executed on.  Currently supports only the Raspberry Pi using the RPi.GPIO
@@ -124,5 +179,8 @@ def get_platform_pwm(**keywords):
     elif plat == Platform.BEAGLEBONE_BLACK:
         import Adafruit_BBIO.PWM
         return BBIO_PWM_Adapter(Adafruit_BBIO.PWM, **keywords)
+    elif plat == Platform.MRAA:
+        import mraa
+        return MRAA_PWM_Adapter(mraa, **keywords)
     elif plat == Platform.UNKNOWN:
         raise RuntimeError('Could not determine platform.')

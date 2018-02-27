@@ -1,3 +1,18 @@
+THIS BRANCH ADD SUPPORT FOR ALL MRAA SUPPORTED BOARDS TO USE ADAFRUIT libraries
+=================================================================================
+
+see https://github.com/intel-iot-devkit/mraa
+
+This version of adafruit python gpio add support for all the mraa library to use adafruit shields.
+The only thing needed is to double check the i2c/spi bus number for the given board.
+First install this library from this repository with 
+
+  ```
+  sudo python setup.py install
+  ```
+
+then install the others adafruit libraries, they should work out of the box
+
 Adafruit Python GPIO Library
 ============================
 
@@ -8,27 +23,27 @@ The library is currently in an early stage, but you can see how its used in the 
 Note that you typically don't need to install this library directly as other libraries will depend on it in their setup and automatically install it.  However if you do need to manually install do so by running these commands:
 
 - On a Debian-based Linux like Raspbian, Ubuntu, etc. in a terminal execute:
-  
+
   ```
   sudo apt-get update
   sudo apt-get install build-essential python-pip python-dev python-smbus git
-  git clone https://github.com/adafruit/Adafruit_Python_GPIO.git
+  git clone https://github.com/emutex/Adafruit_Python_GPIO.git
   cd Adafruit_Python_GPIO
   sudo python setup.py install
   ```
 
 - On Mac OSX, first install PIP by [downloading the python script here](https://bootstrap.pypa.io/get-pip.py) and execute it with `python get-pip.py` in a terminal, then install the [git source control system](http://git-scm.com/downloads).  Then in a terminal execute:
-  
+
   ```
-  git clone https://github.com/adafruit/Adafruit_Python_GPIO.git
+  git clone https://github.com/emutex/Adafruit_Python_GPIO.git
   cd Adafruit_Python_GPIO
   sudo python setup.py install
   ```
 
 - On Windows, first install the [latest Python 2.7 version](https://www.python.org/downloads/windows/), then install PIP by [downloading the python script here](https://bootstrap.pypa.io/get-pip.py) and execute it with `python get-pip.py` in a terminal, and finally install the [git source control system](http://git-scm.com/downloads).  Then in a git bash prompt execute:
-  
+
   ```
-  git clone https://github.com/adafruit/Adafruit_Python_GPIO.git
+  git clone https://github.com/emutex/Adafruit_Python_GPIO.git
   cd Adafruit_Python_GPIO
   python setup.py install
   ```
@@ -37,3 +52,4 @@ Contributing
 ------------
 
 For information on contributing, such as how to run tests, etc. please see the [project wiki](https://github.com/adafruit/Adafruit_Python_GPIO/wiki/Running-Tests) on GitHub.
+

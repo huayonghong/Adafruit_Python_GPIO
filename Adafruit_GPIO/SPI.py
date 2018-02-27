@@ -96,10 +96,10 @@ class SpiDev(object):
         return bytearray(self._device.xfer2(data))
 
 class SpiDevMraa(object):
-    """Hardware SPI implementation with the mraa library on Minnowboard"""
-    def __init__(self, port, device, max_speed_hz=500000):
+    """Hardware SPI implementation with the mraa library"""
+    def __init__(self, port, device=0, max_speed_hz=500000):
         import mraa
-        self._device = mraa.Spi(0)
+        self._device = mraa.Spi(device)
         self._device.mode(0)
         
     def set_clock_hz(self, hz):
@@ -131,7 +131,8 @@ class SpiDevMraa(object):
         
     def close(self):
         """Close communication with the SPI device."""
-        self._device.Spi()
+        del self._device
+        self._device = None
 
     def write(self, data):
         """Half-duplex SPI write.  The specified array of bytes will be clocked
