@@ -24,8 +24,8 @@ import Adafruit_GPIO.Platform as Platform
 
 OUT     = 0
 IN      = 1
-HIGH    = True
-LOW     = False
+HIGH    = 1
+LOW     = 0
 
 RISING      = 1
 FALLING     = 2
@@ -415,6 +415,8 @@ def get_platform_gpio(**keywords):
     plat = Platform.platform_detect()
     if plat == Platform.RASPBERRY_PI:
         import RPi.GPIO
+        if keywords['mode'] == 'board':
+            keywords['mode'] = RPi.GPIO.BOARD
         return RPiGPIOAdapter(RPi.GPIO, **keywords)
     elif plat == Platform.BEAGLEBONE_BLACK:
         import Adafruit_BBIO.GPIO
@@ -422,5 +424,10 @@ def get_platform_gpio(**keywords):
     elif plat == Platform.MINNOWBOARD:
         import mraa
         return AdafruitMinnowAdapter(mraa, **keywords)
+    elif plat == Platform.ORANGE_PI:
+        import OPi.GPIO
+        if keywords['mode'] == 'board':
+            keywords['mode'] = OPi.GPIO.BOARD
+        return RPiGPIOAdapter(OPi.GPIO, **keywords)
     elif plat == Platform.UNKNOWN:
         raise RuntimeError('Could not determine platform.')
