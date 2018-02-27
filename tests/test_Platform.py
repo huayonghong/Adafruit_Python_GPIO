@@ -30,11 +30,17 @@ class TestPlatformDetect(unittest.TestCase):
     def test_beaglebone_black(self):
         result = Platform.platform_detect()
         self.assertEquals(result, Platform.BEAGLEBONE_BLACK)
-
+                          
+    @patch('platform.platform', Mock(return_value='Linux-3.10.107-pine64-aarch64-with-Ubuntu-16.04-xenial'))
+    def test_pine64(self):
+        result = Platform.platform_detect()
+        self.assertEquals(result, Platform.PINE64)
+        
     @patch('platform.platform', Mock(return_value='Darwin-13.2.0-x86_64-i386-64bit'))
     def test_unknown(self):
         result = Platform.platform_detect()
         self.assertEquals(result, Platform.UNKNOWN)
+        
 
 
 class TestPiRevision(unittest.TestCase):
