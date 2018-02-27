@@ -347,8 +347,8 @@ class AdafruitBBIOAdapter(BaseGPIO):
         else:
             self.bbio_gpio.cleanup(pin)
 
-class AdafruitMinnowAdapter(BaseGPIO):
-    """GPIO implementation for the Minnowboard + MAX using the mraa library"""
+class AdafruitMraaAdapter(BaseGPIO):
+    """GPIO implementation for the Minnowboard + MAX and UP using the mraa library"""
     
     def __init__(self,mraa_gpio):
         self.mraa_gpio = mraa_gpio
@@ -421,6 +421,9 @@ def get_platform_gpio(**keywords):
         return AdafruitBBIOAdapter(Adafruit_BBIO.GPIO, **keywords)
     elif plat == Platform.MINNOWBOARD:
         import mraa
-        return AdafruitMinnowAdapter(mraa, **keywords)
+        return AdafruitMraaAdapter(mraa, **keywords)
+    elif plat == Platform.UP:
+        import mraa
+        return AdafruitMraaAdapter(mraa, **keywords)
     elif plat == Platform.UNKNOWN:
         raise RuntimeError('Could not determine platform.')

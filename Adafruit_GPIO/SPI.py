@@ -95,7 +95,7 @@ class SpiDev(object):
         return bytearray(self._device.xfer2(data))
 
 class SpiDevMraa(object):
-    """Hardware SPI implementation with the mraa library on Minnowboard"""
+    """Hardware SPI implementation with the mraa library on Minnowboard and UP"""
     def __init__(self, port, device, max_speed_hz=500000):
         import mraa
         self._device = mraa.Spi(0)
