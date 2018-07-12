@@ -150,7 +150,26 @@ class FT232H(GPIO.BaseGPIO):
             self._check(ftdi.usb_open, vid, pid)
         else:
             # Open USB connection for VID, PID, serial.
-            self._check(ftdi.usb_open_string, 's:{0}:{1}:{2}'.format(vid, pid, serial))
+            ##self._check(ftdi.usb_open_string, 's:{0}:{1}:{2}'.format(vid, pid, serial))
+            
+            finaldev = None
+            device_list = None
+            count, device_list = ftdi.usb_find_all(self._ctx, vid, pid)
+            if count < 0:
+                raise RuntimeError('ftdi_usb_find_all returned error {0}: {1}'.format(count, ftdi.get_error_string(self._ctx)))
+            # Walk through list of devices and assemble list of serial numbers.
+            devices = []
+            while device_list is not None:
+                # Get USB device strings and add serial to list of devices.
+                ret, manufacturer, description, serialtest = ftdi.usb_get_strings(self._ctx, device_list.dev, 256, 256, 256)
+                if serialtest == serial:
+                    finaldev = device_list.dev
+                device_list = device_list.next
+            if finaldev is None:
+                raise RuntimeError('Could not find correct device')
+            self._check(ftdi.usb_open_dev, finaldev)
+                #
+                
         # Reset device.
         self._check(ftdi.usb_reset)
         # Disable flow control. Commented out because it is unclear if this is necessary.
@@ -181,9 +200,9 @@ class FT232H(GPIO.BaseGPIO):
         # Get modem status. Useful to enable for debugging.
         #ret, status = ftdi.poll_modem_status(self._ctx)
         #if ret == 0:
-        #	logger.debug('Modem status {0:02X}'.format(status))
+        #    logger.debug('Modem status {0:02X}'.format(status))
         #else:
-        #	logger.debug('Modem status error {0}'.format(ret))
+        #    logger.debug('Modem status error {0}'.format(ret))
         length = len(string)
         ret = ftdi.write_data(self._ctx, string, length)
         # Log the string that was written in a python hex string format using a very
