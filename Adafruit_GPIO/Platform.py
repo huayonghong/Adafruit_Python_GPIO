@@ -40,7 +40,7 @@ def platform_detect():
     # Handle Beaglebone Black
     # TODO: Check the Beaglebone Black /proc/cpuinfo value instead of reading
     # the platform.
-	command = 'cat /proc/cpuinfo'
+    command = 'cat /proc/cpuinfo'
     plat = os.popen(command).read().strip()
 
     if plat.lower().find('generic am33xx') > -1:
