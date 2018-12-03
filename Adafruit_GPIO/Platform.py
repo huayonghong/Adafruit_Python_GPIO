@@ -20,12 +20,14 @@
 # SOFTWARE.
 import platform
 import re
+import os
 
 # Platform identification constants.
 UNKNOWN          = 0
 RASPBERRY_PI     = 1
 BEAGLEBONE_BLACK = 2
 MINNOWBOARD      = 3
+GIANT_BOARD      = 4
 
 def platform_detect():
     """Detect if running on the Raspberry Pi or Beaglebone Black and return the
@@ -38,13 +40,13 @@ def platform_detect():
     # Handle Beaglebone Black
     # TODO: Check the Beaglebone Black /proc/cpuinfo value instead of reading
     # the platform.
-    plat = platform.platform()
-    if plat.lower().find('armv7l-with-debian') > -1:
+	command = 'cat /proc/cpuinfo'
+    plat = os.popen(command).read().strip()
+
+    if plat.lower().find('generic am33xx') > -1:
         return BEAGLEBONE_BLACK
-    elif plat.lower().find('armv7l-with-ubuntu') > -1:
-        return BEAGLEBONE_BLACK
-    elif plat.lower().find('armv7l-with-glibc2.4') > -1:
-        return BEAGLEBONE_BLACK
+	elif plat.lower().find('atmel sama5') > -1:
+        return GIANT_BOARD
         
     # Handle Minnowboard
     # Assumption is that mraa is installed
