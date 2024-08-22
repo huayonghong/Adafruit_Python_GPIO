@@ -22,11 +22,12 @@ import platform
 import re
 
 # Platform identification constants.
-UNKNOWN          = 0
-RASPBERRY_PI     = 1
-BEAGLEBONE_BLACK = 2
-MINNOWBOARD      = 3
-JETSON_NANO       = 4
+UNKNOWN             = 0
+RASPBERRY_PI        = 1
+BEAGLEBONE_BLACK    = 2
+MINNOWBOARD         = 3
+JETSON_NANO         = 4
+JETSON_ORIN_NANO    = 5
 
 def platform_detect():
     """Detect if running on the Raspberry Pi or Beaglebone Black and return the
@@ -48,7 +49,9 @@ def platform_detect():
         return BEAGLEBONE_BLACK
     elif plat.lower().find('tegra-aarch64-with-ubuntu') > -1:
         return JETSON_NANO
-        
+    elif plat.lower().find('tegra-aarch64-with-glibc') > -1:
+        return JETSON_ORIN_NANO
+
     # Handle Minnowboard
     # Assumption is that mraa is installed
     try: 
